@@ -97,9 +97,8 @@ class OCRDataset(Dataset):
             img = Image.open(buf).convert('RGB')
         except:
             print(f"UnidentifiedImageError encountered at index {idx}. Skipping this image.")
-        # Handle the error, e.g., by returning a blank image or skipping the sample
-            img = Image.new('RGB', (self.config['dataset']['image_height'], self.config['dataset']['image_min_width']), (255, 255, 255))
-       
+            return None,None,None
+        # Handle the error, e.g., by returning a blank image or skipping the sample       
         if self.transform:
             img = self.transform(img)
 
@@ -111,7 +110,8 @@ class OCRDataset(Dataset):
 
     def __getitem__(self, idx):
         img, word, img_path = self.read_data(idx)
-        
+        if img is None or word is None or img_path is None:
+            return self.__getitem__(random.randint(0, self.__len__() - 1))  # Get another random sample
         img_path = os.path.join(self.root_dir, img_path)
         
         sample = {'img': img, 'word': word, 'img_path': img_path}
