@@ -123,59 +123,42 @@ class Trainer():
         self.train_losses = []
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
         
-	def train(self):
-	    total_loss = 0
-	    best_acc = 0
-	
-	    for i in range(self.num_iters):
-	        self.iter += 1
-	        para_loader = pl.ParallelLoader(self.train_gen, [self.device])
-	        train_loader = para_loader.per_device_loader(self.device)
-	
-	        for batch in train_loader:
-	            loss = self.step(batch)
-	            total_loss += loss
-	            self.train_losses.append((self.iter, loss))
-	
-	            if self.iter % self.print_every == 0:
-	                info = f'iter: {self.iter:06d} - train loss: {total_loss/self.print_every:.3f} - lr: {self.optimizer.param_groups[0]["lr"]:.2e}'
-	                print(info)
-	                self.logger.log(info)
-	                total_loss = 0
-	
-	            if self.valid_annotation and self.iter % self.valid_every == 0:
-	                val_loss = self.validate()
-	                acc_full_seq, acc_per_char = self.precision(self.metrics)
-	
-	                info = f'iter: {self.iter:06d} - valid loss: {val_loss:.3f} - acc full seq: {acc_full_seq:.4f} - acc per char: {acc_per_char:.4f}'
-	                print(info)
-	                self.logger.log(info)
-	
-	                if acc_full_seq > best_acc:
-	                    self.save_weights(self.export_weights)
-	                    best_acc = acc_full_seq
-	                    
-	                self.early_stopping(val_loss, self.model, self.export_weights)
-	                if self.early_stopping.early_stop:
-	                    print("Early stopping")
-	                    return
-	
-	            if self.valid_annotation and self.iter % self.valid_every == 0:
-	                val_loss = self.validate()
-	                acc_full_seq, acc_per_char = self.precision(self.metrics)
-	
-	                info = 'iter: {:06d} - valid loss: {:.3f} - acc full seq: {:.4f} - acc per char: {:.4f}'.format(self.iter, val_loss, acc_full_seq, acc_per_char)
-	                print(info)
-	                self.logger.log(info)
-	
-	                if acc_full_seq > best_acc:
-	                    self.save_weights(self.export_weights)
-	                    best_acc = acc_full_seq
-	                    
-	                self.early_stopping(val_loss, self.model, self.export_weights)
-	                if self.early_stopping.early_stop:
-	                    print("Early stopping")
-	                    break
+    def train(self):
+        total_loss = 0
+        best_acc = 0
+
+        for i in range(self.num_iters):
+            self.iter += 1
+            para_loader = pl.ParallelLoader(self.train_gen, [self.device])
+            train_loader = para_loader.per_device_loader(self.device)
+
+            for batch in train_loader:
+                loss = self.step(batch)
+                total_loss += loss
+                self.train_losses.append((self.iter, loss))
+
+                if self.iter % self.print_every == 0:
+                    info = f'iter: {self.iter:06d} - train loss: {total_loss/self.print_every:.3f} - lr: {self.optimizer.param_groups[0]["lr"]:.2e}'
+                    print(info)
+                    self.logger.log(info)
+                    total_loss = 0
+
+                if self.valid_annotation and self.iter % self.valid_every == 0:
+                    val_loss = self.validate()
+                    acc_full_seq, acc_per_char = self.precision(self.metrics)
+
+                    info = f'iter: {self.iter:06d} - valid loss: {val_loss:.3f} - acc full seq: {acc_full_seq:.4f} - acc per char: {acc_per_char:.4f}'
+                    print(info)
+                    self.logger.log(info)
+
+                    if acc_full_seq > best_acc:
+                        self.save_weights(self.export_weights)
+                        best_acc = acc_full_seq
+                        
+                    self.early_stopping(val_loss, self.model, self.export_weights)
+                    if self.early_stopping.early_stop:
+                        print("Early stopping")
+                        return
 	            
     def validate(self):
         self.model.eval()
@@ -384,12 +367,12 @@ class Trainer():
 
         batch = self.batch_to_device(batch)
         outputs = self.model(batch['img'], batch['tgt_input'], tgt_key_padding_mask=batch['tgt_padding_mask'])
-	outputs = outputs.view(-1, outputs.size(2))
-	tgt_output = batch['tgt_output'].view(-1)
-	
-	loss = self.criterion(outputs, tgt_output)
-	self.optimizer.zero_grad()
-	loss.backward()
-	xm.optimizer_step(self.optimizer)
-	
-	return loss.item()
+        outputs = outputs.view(-1, outputs.size(2))
+        tgt_output = batch['tgt_output'].view(-1)
+        
+        loss = self.criterion(outputs, tgt_output)
+        self.optimizer.zero_grad()
+        loss.backward()
+        xm.optimizer_step(self.optimizer)
+        
+        return loss.item()
