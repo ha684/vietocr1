@@ -7,12 +7,6 @@ from vietocr.tool.translate import translate, batch_translate_beam_search
 from vietocr.tool.utils import download_weights
 from vietocr.tool.logger import Logger
 from vietocr.loader.aug import ImgAugTransform, ImgAugTransformV2
-import torch_xla
-import torch_xla.core.xla_model as xm
-import torch_xla.distributed.parallel_loader as pl
-import torch_xla.utils.serialization as xser
-import torch_xla.distributed.xla_multiprocessing as xmp
-from torch_xla.distributed.xla_multiprocessing import MpModelWrapper
 
 import yaml
 import torch
@@ -30,6 +24,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
+
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
         self.patience = patience
@@ -68,9 +63,9 @@ class Trainer():
     def __init__(self, config, pretrained=True, augmentor=ImgAugTransformV2()):
 
         self.config = config
-        self.model, self.vocab = MpModelWrapper(build_model(config))
+        self.model, self.vocab = build_model(config)
         
-        self.device = xm.xla_device()  # Set TPU device
+        self.device = config['device']
         self.num_iters = config['trainer']['iters']
         self.beamsearch = config['predictor']['beamsearch']
 
@@ -90,9 +85,6 @@ class Trainer():
         self.export_weights = config['trainer']['export']
         self.metrics = config['trainer']['metrics']
         logger = config['trainer']['log']
-    
-        if logger:
-            self.logger = Logger(logger) 
 
         if pretrained:
             weight_file = download_weights(config['pretrain'], quiet=config['quiet'])
@@ -122,44 +114,62 @@ class Trainer():
 
         self.train_losses = []
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
-        
+
     def train(self):
         total_loss = 0
+        
+        total_loader_time = 0
+        total_gpu_time = 0
         best_acc = 0
 
+        data_iter = iter(self.train_gen)
         for i in range(self.num_iters):
             self.iter += 1
-            para_loader = pl.ParallelLoader(self.train_gen, [self.device])
-            train_loader = para_loader.per_device_loader(self.device)
 
-            for batch in train_loader:
-                loss = self.step(batch)
-                total_loss += loss
-                self.train_losses.append((self.iter, loss))
+            start = time.time()
 
-                if self.iter % self.print_every == 0:
-                    info = f'iter: {self.iter:06d} - train loss: {total_loss/self.print_every:.3f} - lr: {self.optimizer.param_groups[0]["lr"]:.2e}'
-                    print(info)
-                    self.logger.log(info)
-                    total_loss = 0
+            try:
+                batch = next(data_iter)
+            except StopIteration:
+                data_iter = iter(self.train_gen)
+                batch = next(data_iter)
 
-                if self.valid_annotation and self.iter % self.valid_every == 0:
-                    val_loss = self.validate()
-                    acc_full_seq, acc_per_char = self.precision(self.metrics)
+            total_loader_time += time.time() - start
 
-                    info = f'iter: {self.iter:06d} - valid loss: {val_loss:.3f} - acc full seq: {acc_full_seq:.4f} - acc per char: {acc_per_char:.4f}'
-                    print(info)
-                    self.logger.log(info)
+            start = time.time()
+            loss = self.step(batch)
+            total_gpu_time += time.time() - start
 
-                    if acc_full_seq > best_acc:
-                        self.save_weights(self.export_weights)
-                        best_acc = acc_full_seq
-                        
-                    self.early_stopping(val_loss, self.model, self.export_weights)
-                    if self.early_stopping.early_stop:
-                        print("Early stopping")
-                        return
-	            
+            total_loss += loss
+            self.train_losses.append((self.iter, loss))
+
+            if self.iter % self.print_every == 0:
+                info = 'iter: {:06d} - train loss: {:.3f} - lr: {:.2e} - load time: {:.2f} - gpu time: {:.2f}'.format(self.iter, 
+                        total_loss/self.print_every, self.optimizer.param_groups[0]['lr'], 
+                        total_loader_time, total_gpu_time)
+
+                total_loss = 0
+                total_loader_time = 0
+                total_gpu_time = 0
+                print(info) 
+
+            if self.valid_annotation and self.iter % self.valid_every == 0:
+                val_loss = self.validate()
+                acc_full_seq, acc_per_char = self.precision(self.metrics)
+
+                info = 'iter: {:06d} - valid loss: {:.3f} - acc full seq: {:.4f} - acc per char: {:.4f}'.format(self.iter, val_loss, acc_full_seq, acc_per_char)
+                print(info)
+
+                if acc_full_seq > best_acc:
+                    self.save_weights(self.export_weights)
+                    best_acc = acc_full_seq
+                    
+                self.early_stopping(val_loss, self.model, self.export_weights)
+                if self.early_stopping.early_stop:
+                    print("Early stopping")
+                    break
+
+            
     def validate(self):
         self.model.eval()
 
@@ -297,10 +307,10 @@ class Trainer():
         path, _ = os.path.split(filename)
         os.makedirs(path, exist_ok=True)
 
-        xser.save(state, filename)
+        torch.save(state, filename)
 
     def load_weights(self, filename):
-        state_dict = xser.load(filename, map_location=torch.device(self.device))
+        state_dict = torch.load(filename, map_location=torch.device(self.device),weights_only=True)
 
         for name, param in self.model.named_parameters():
             if name not in state_dict:
@@ -339,8 +349,7 @@ class Trainer():
                 image_min_width=self.config['dataset']['image_min_width'], 
                 image_max_width=self.config['dataset']['image_max_width'])
 
-        sampler = torch.utils.data.distributed.DistributedSampler(
-        		dataset, num_replicas=xm.xrt_world_size(), rank=xm.get_ordinal(), shuffle=True)
+        sampler = ClusterRandomSampler(dataset, self.batch_size, True)
         collate_fn = Collator(masked_language_model)
 
         gen = DataLoader(
@@ -366,13 +375,24 @@ class Trainer():
         self.model.train()
 
         batch = self.batch_to_device(batch)
-        outputs = self.model(batch['img'], batch['tgt_input'], tgt_key_padding_mask=batch['tgt_padding_mask'])
-        outputs = outputs.view(-1, outputs.size(2))
-        tgt_output = batch['tgt_output'].view(-1)
+        img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
+        
+        outputs = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask)
+#        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
+        outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
+        tgt_output = tgt_output.view(-1)#flatten()
         
         loss = self.criterion(outputs, tgt_output)
+
         self.optimizer.zero_grad()
+
         loss.backward()
-        xm.optimizer_step(self.optimizer)
         
-        return loss.item()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
+
+        self.optimizer.step()
+        self.scheduler.step()
+
+        loss_item = loss.item()
+
+        return loss_item
