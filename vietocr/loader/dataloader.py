@@ -93,8 +93,12 @@ class OCRDataset(Dataset):
 
     def read_data(self, idx):
         buf, label, img_path = self.read_buffer(idx) 
-
-        img = Image.open(buf).convert('RGB')        
+        try:
+            img = Image.open(buf).convert('RGB')
+        except:
+            print(f"UnidentifiedImageError encountered at index {idx}. Skipping this image.")
+        # Handle the error, e.g., by returning a blank image or skipping the sample
+            img = Image.new('RGB', (self.config['dataset']['image_height'], self.config['dataset']['image_min_width']), (255, 255, 255))
        
         if self.transform:
             img = self.transform(img)
