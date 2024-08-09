@@ -115,8 +115,6 @@ class Trainer():
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []
-        self.model = nn.DataParallel(self.model)
-        self.model.to(self.device)
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
         
     def train(self):
