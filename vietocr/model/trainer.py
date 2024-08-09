@@ -290,9 +290,14 @@ class Trainer():
     def load_checkpoint(self, filename):
         checkpoint = torch.load(filename)
         
-        optim = ScheduledOptim(
-	       Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
-            	self.config['transformer']['d_model'], **self.config['optimizer'])
+        if 'd_model' in self.config.get('transformer', {}):
+            optim = ScheduledOptim(
+                Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
+                self.config['transformer']['d_model'], **self.config['optimizer']
+            )
+        else:
+            # Use the existing optimizer configuration without d_model
+            optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
 
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.model.load_state_dict(checkpoint['state_dict'])
