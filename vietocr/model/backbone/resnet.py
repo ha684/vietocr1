@@ -103,11 +103,20 @@ class ResNet(nn.Module):
         pretrained_resnet = models.resnet50(weights='IMAGENET1K_V1')  # Load pretrained ResNet50 weights
         pretrained_dict = pretrained_resnet.state_dict()
         model_dict = self.state_dict()
-
-        # Only update layers that are in both pretrained model and custom model
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        model_dict.update(pretrained_dict)
+    
+        # Load only layers where the shape matches
+        matched_layers = {k: v for k, v in pretrained_dict.items() if k in model_dict and v.size() == model_dict[k].size()}
+        model_dict.update(matched_layers)
         self.load_state_dict(model_dict)
+    
+        # Custom initialization for non-matching layers
+        for name, param in self.named_parameters():
+            if name not in matched_layers:
+                if 'weight' in name:
+                    nn.init.kaiming_normal_(param, mode='fan_out', nonlinearity='relu')
+                elif 'bias' in name:
+                    nn.init.constant_(param, 0)
+
 
     def forward(self, x):
         x = self.conv0_1(x)
