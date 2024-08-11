@@ -142,7 +142,8 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def _load_pretrained_weights(self):
-        pretrained_resnet = models.resnet50(weights='IMAGENET1K_V1')  # Load pretrained ResNet50 weights
+        # pretrained_resnet = models.resnet50(weights='IMAGENET1K_V1')  # Load pretrained ResNet50 weights
+        pretrained_resnet = models.resnet101(weights='IMAGENET1K_V1')
         pretrained_dict = pretrained_resnet.state_dict()
         model_dict = self.state_dict()
     
@@ -194,4 +195,5 @@ class ResNet(nn.Module):
         return conv
 
 def Resnet50(ss, hidden=512, pretrained=True):
-    return ResNet(3, hidden, FPN, [1, 2, 5, 3], pretrained=pretrained)
+    return ResNet(3, hidden, FPN,  [3, 4, 23, 3], pretrained=pretrained)
+# [1, 2, 5, 3]
