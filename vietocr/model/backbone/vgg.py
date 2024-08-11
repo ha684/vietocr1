@@ -6,7 +6,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 
 
 class Vgg(nn.Module):
-    def __init__(self, name, ss, ks, hidden, pretrained=True, dropout=0.5):
+    def __init__(self, name, ss, ks, hidden=512, pretrained=True, dropout=0.5):
         super(Vgg, self).__init__()
         
         if pretrained:
