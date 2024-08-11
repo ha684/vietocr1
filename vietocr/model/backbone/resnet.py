@@ -108,14 +108,7 @@ class ResNet(nn.Module):
         matched_layers = {k: v for k, v in pretrained_dict.items() if k in model_dict and v.size() == model_dict[k].size()}
         model_dict.update(matched_layers)
         self.load_state_dict(model_dict)
-    
-        # Custom initialization for non-matching layers
-        for name, param in self.named_parameters():
-            if name not in matched_layers:
-                if 'weight' in name:
-                    nn.init.kaiming_normal_(param, mode='fan_out', nonlinearity='relu')
-                elif 'bias' in name:
-                    nn.init.constant_(param, 0)
+
 
 
     def forward(self, x):
