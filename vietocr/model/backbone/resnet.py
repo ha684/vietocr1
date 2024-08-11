@@ -1,12 +1,13 @@
 import torch
 from torch import nn
+from torchvision import models
 
 class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
-        self.conv1 = self._conv3x3(inplanes, planes)
+        self.conv1 = self._conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = self._conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
@@ -38,7 +39,7 @@ class BasicBlock(nn.Module):
     
 class ResNet(nn.Module):
 
-    def __init__(self, input_channel, output_channel, block, layers):
+    def __init__(self, input_channel, output_channel, block, layers, pretrained=False):
         super(ResNet, self).__init__()
 
         self.output_channel_block = [int(output_channel / 4), int(output_channel / 2), output_channel, output_channel]
@@ -78,6 +79,9 @@ class ResNet(nn.Module):
                                  3], kernel_size=2, stride=1, padding=0, bias=False)
         self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
 
+        if pretrained:
+            self._load_pretrained_weights()
+
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
@@ -94,6 +98,16 @@ class ResNet(nn.Module):
             layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
+
+    def _load_pretrained_weights(self):
+        pretrained_resnet = models.resnet50(weights='IMAGENET1K_V1')  # Load pretrained ResNet50 weights
+        pretrained_dict = pretrained_resnet.state_dict()
+        model_dict = self.state_dict()
+
+        # Only update layers that are in both pretrained model and custom model
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        model_dict.update(pretrained_dict)
+        self.load_state_dict(model_dict)
 
     def forward(self, x):
         x = self.conv0_1(x)
@@ -135,6 +149,5 @@ class ResNet(nn.Module):
 
         return conv
 
-def Resnet50(ss, hidden):
-    return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3])
-
+def Resnet50(ss, hidden, pretrained=False):
+    return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3], pretrained=pretrained)
