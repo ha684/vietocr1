@@ -58,6 +58,7 @@ class FPNBlock(nn.Module):
         return x
 
 class FPN(nn.Module):
+    expansion = 1
     def __init__(self, in_channels_list, out_channels):
         super(FPN, self).__init__()
         # Create FPN blocks for each stage in the backbone
