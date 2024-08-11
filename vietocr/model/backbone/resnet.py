@@ -121,7 +121,7 @@ class ResNet(nn.Module):
         self.conv4_2 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[
                                  3], kernel_size=2, stride=1, padding=0, bias=False)
         self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
-
+        self.fpn = FPN(in_channels_list=[256, 512, 1024, 2048], out_channels=256)
         if pretrained:
             self._load_pretrained_weights()
 
@@ -187,14 +187,10 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.conv4_2(x)
         x = self.bn4_2(x)
-        conv = self.relu(x)
-        
-        conv = conv.transpose(-1, -2)
-        conv = conv.flatten(2)
-        conv = conv.permute(-1, 0, 1)
+        fpn_outs = self.fpn([c1, c2, c3, c4])
 
-        return conv
+        return fpn_outs
 
 def Resnet50(ss, hidden=512, pretrained=True):
-    return ResNet(3, hidden, FPN,  [3, 4, 23, 3], pretrained=pretrained)
+    return ResNet(3, hidden, BasicBlock,  [3, 4, 23, 3], pretrained=pretrained)
 # [1, 2, 5, 3]
