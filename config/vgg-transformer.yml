@@ -22,5 +22,5 @@ cnn:
         - [2, 1]
         - [1, 1]
     # dim of ouput feature map
-    hidden: 256
+    hidden: 512
 
