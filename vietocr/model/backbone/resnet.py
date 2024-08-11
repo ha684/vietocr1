@@ -149,5 +149,5 @@ class ResNet(nn.Module):
 
         return conv
 
-def Resnet50(ss, hidden, pretrained=False):
+def Resnet50(ss, hidden, pretrained=True):
     return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3], pretrained=pretrained)
