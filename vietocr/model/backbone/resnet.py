@@ -144,7 +144,7 @@ class ResNet(nn.Module):
 
     def _load_pretrained_weights(self):
         # pretrained_resnet = models.resnet50(weights='IMAGENET1K_V1')  # Load pretrained ResNet50 weights
-        pretrained_resnet = models.resnet101(weights='IMAGENET1K_V1')
+        pretrained_resnet = models.resnet152(weights='IMAGENET1K_V1')
         pretrained_dict = pretrained_resnet.state_dict()
         model_dict = self.state_dict()
     
