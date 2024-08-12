@@ -144,12 +144,12 @@ class ResNet(nn.Module):
         x = self.bn3(x)
         x = self.relu(x)
 
+        x = self.maxpool4(x)
         x = self.layer4(x)
-        x = self.conv4_1(x)
-        x = self.bn4_1(x)
+        x = self.conv4(x)
+        x = self.bn4(x)
         x = self.relu(x)
-        x = self.conv4_2(x)
-        x = self.bn4_2(x)
+
         x = self.maxpool5(x)
         x = self.layer5(x)
         x = self.conv5_1(x)
