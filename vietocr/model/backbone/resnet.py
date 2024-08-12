@@ -36,50 +36,6 @@ class BasicBlock(nn.Module):
         out = self.relu(out)
 
         return out
-class FPNBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(FPNBlock, self).__init__()
-        self.inner_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-        self.out_conv = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x, upsampled=None):
-        # Apply the inner 1x1 convolution
-        x = self.inner_conv(x)
-        
-        # If an upsampled feature map is provided, add it
-        if upsampled is not None:
-            x = x + F.interpolate(upsampled, size=x.shape[2:], mode='nearest')
-        
-        # Apply the 3x3 convolution
-        x = self.out_conv(x)
-        x = self.relu(x)
-        
-        return x
-
-class FPN(nn.Module):
-    expansion = 1
-    def __init__(self, in_channels_list, out_channels):
-        super(FPN, self).__init__()
-        # Create FPN blocks for each stage in the backbone
-        self.fpn_blocks = nn.ModuleList([
-            FPNBlock(in_channels, out_channels) for in_channels in in_channels_list
-        ])
-        # Optionally, you can add more layers for the final output, e.g., a final convolutional layer
-
-    def forward(self, x_list):
-        # x_list is expected to be a list of feature maps from the backbone (from highest to lowest resolution)
-        x = x_list[-1]
-        fpn_outputs = []
-
-        # Iterate over the feature maps in reverse order to apply FPN
-        for i in range(len(x_list) - 1, -1, -1):
-            x = self.fpn_blocks[i](x_list[i], x if i < len(x_list) - 1 else None)
-            fpn_outputs.append(x)
-
-        # Return the outputs in reverse order so that they correspond to the original feature map order
-        return fpn_outputs[::-1]
-        
 class ResNet(nn.Module):
 
     def __init__(self, input_channel, output_channel, block, layers, pretrained=True):
@@ -121,7 +77,15 @@ class ResNet(nn.Module):
         self.conv4_2 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[
                                  3], kernel_size=2, stride=1, padding=0, bias=False)
         self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
-        self.fpn = FPN(in_channels_list=[256, 512, 1024, 2048], out_channels=256)
+        self.maxpool5 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.layer5 = self._make_layer(block, self.output_channel_block[4], layers[4], stride=1)
+        self.conv5_1 = nn.Conv2d(self.output_channel_block[4], self.output_channel_block[
+                                 4], kernel_size=2, stride=(2, 1), padding=(0, 1), bias=False)
+        self.bn5_1 = nn.BatchNorm2d(self.output_channel_block[4])
+        self.conv5_2 = nn.Conv2d(self.output_channel_block[4], self.output_channel_block[
+                                 4], kernel_size=2, stride=1, padding=0, bias=False)
+        self.bn5_2 = nn.BatchNorm2d(self.output_channel_block[4])
+        
         if pretrained:
             self._load_pretrained_weights()
 
@@ -187,6 +151,13 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.conv4_2(x)
         x = self.bn4_2(x)
+        x = self.maxpool5(x)
+        x = self.layer5(x)
+        x = self.conv5_1(x)
+        x = self.bn5_1(x)
+        x = self.relu(x)
+        x = self.conv5_2(x)
+        x = self.bn5_2(x)
         conv = self.relu(x)
         
         conv = conv.transpose(-1, -2)
@@ -196,5 +167,5 @@ class ResNet(nn.Module):
         return conv
 
 def Resnet50(ss, hidden=512, pretrained=True):
-    return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3], pretrained=pretrained)
+    return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3,3], pretrained=pretrained)
 # [1, 2, 5, 3]
