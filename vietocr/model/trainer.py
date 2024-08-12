@@ -94,11 +94,9 @@ class Trainer():
         
         self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
         self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
-#        self.optimizer = ScheduledOptim(
-#            Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
-#            #config['transformer']['d_model'], 
-#            512,
-#            **config['optimizer'])
+        # self.optimizer = ScheduledOptim(
+        #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
+        #     config['transformer']['d_model'],**config['optimizer'])
 
         self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
         
