@@ -156,53 +156,44 @@ class ResNet(nn.Module):
 
 
     def forward(self, x):
-        # Initial Convolution and Batch Norm
         x = self.conv0_1(x)
         x = self.bn0_1(x)
         x = self.relu(x)
         x = self.conv0_2(x)
         x = self.bn0_2(x)
         x = self.relu(x)
-    
-        # First MaxPool and Layer1
+
         x = self.maxpool1(x)
-        c1 = self.layer1(x)  # First feature map (e.g., 64x56x56)
-    
-        # Layer1 post-processing
-        x = self.conv1(c1)
+        x = self.layer1(x)
+        x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-    
-        # Second MaxPool and Layer2
+
         x = self.maxpool2(x)
-        c2 = self.layer2(x)  # Second feature map (e.g., 128x28x28)
-    
-        # Layer2 post-processing
-        x = self.conv2(c2)
+        x = self.layer2(x)
+        x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
-    
-        # Third MaxPool and Layer3
+
         x = self.maxpool3(x)
-        c3 = self.layer3(x)  # Third feature map (e.g., 256x14x14)
-    
-        # Layer3 post-processing
-        x = self.conv3(c3)
+        x = self.layer3(x)
+        x = self.conv3(x)
         x = self.bn3(x)
         x = self.relu(x)
-    
-        # Layer4 and Final Convolutions
-        c4 = self.layer4(x)  # Fourth feature map (e.g., 512x7x7)
-        x = self.conv4_1(c4)
+
+        x = self.layer4(x)
+        x = self.conv4_1(x)
         x = self.bn4_1(x)
         x = self.relu(x)
         x = self.conv4_2(x)
         x = self.bn4_2(x)
+        conv = self.relu(x)
         
-        # Apply FPN to the feature maps
-        fpn_outs = self.fpn([c1, c2, c3, c4])
-    
-        return fpn_outs
+        conv = conv.transpose(-1, -2)
+        conv = conv.flatten(2)
+        conv = conv.permute(-1, 0, 1)
+
+        return conv
 
 def Resnet50(ss, hidden=512, pretrained=True):
     return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3], pretrained=pretrained)
