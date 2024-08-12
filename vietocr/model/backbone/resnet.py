@@ -38,7 +38,7 @@ class BasicBlock(nn.Module):
         return out
 class ResNet(nn.Module):
 
-    def __init__(self, input_channel, output_channel, block, layers):
+    def __init__(self, input_channel, output_channel, block, layers,pretrained):
         super(ResNet, self).__init__()
 
         self.output_channel_block = [int(output_channel / 16), int(output_channel / 8), int(output_channel / 4), int(output_channel / 2), output_channel]
