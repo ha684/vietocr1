@@ -15,7 +15,8 @@ from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
 from torch.utils.data import DataLoader
 from einops import rearrange
 from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
-
+from optim.optimizers_main.distributed_shampoo.distributed_shampoo import DistributedShampoo
+from optim.optimizers_main.distributed_shampoo.shampoo_types import AdamGraftingConfig
 import torchvision 
 
 from vietocr.tool.utils import compute_accuracy
@@ -91,8 +92,20 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        
-        self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
+        self.optimizer = DistributedShampoo(
+            self.model.parameters(),
+            lr=0.001,
+            betas=(0.9, 0.999),
+            epsilon=1e-12,
+            weight_decay=1e-05,
+            max_preconditioner_dim=8192,
+            precondition_frequency=100,
+            use_decoupled_weight_decay=True,
+            grafting_config=AdamGraftingConfig(
+                beta2=0.999,
+                epsilon=1e-12,
+            ),
+        )
         self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
         # self.optimizer = ScheduledOptim(
         #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
