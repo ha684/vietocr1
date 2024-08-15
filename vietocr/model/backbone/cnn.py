@@ -16,9 +16,9 @@ class CNN(nn.Module):
         elif backbone == 'resnet50':
             self.model = Resnet50(**kwargs)
         elif backbone == 'convNext':
-            self.model = convnextv2_base()
+            self.model = convnextv2_base(**kwargs)
         elif backbone == 'convnextv2':
-            self.model = convnextv2()
+            self.model = convnextv2(**kwargs)
 
     def forward(self, x):
         return self.model(x)

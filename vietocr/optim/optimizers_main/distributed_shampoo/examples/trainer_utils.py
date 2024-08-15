@@ -16,8 +16,8 @@ from typing import Optional, Tuple
 import torch
 import torch.distributed as dist
 
-from distributed_shampoo.distributed_shampoo import DistributedShampoo
-from distributed_shampoo.shampoo_types import (
+from vietocr.optim.optimizers_main.distributed_shampoo.distributed_shampoo import DistributedShampoo
+from vietocr.optim.optimizers_main.distributed_shampoo.shampoo_types import (
     AdaGradGraftingConfig,
     AdamGraftingConfig,
     CommunicationDType,

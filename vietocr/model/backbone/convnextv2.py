@@ -13,8 +13,9 @@ class ConvNeXtV2(nn.Module):
         return x
 def convnextv2():
     return ConvNeXtV2()
+
 if __name__ == "__main__":
     model = ConvNeXtV2(model_name='convnextv2_base', pretrained=True)
-    input_tensor = torch.randn(1, 3, 224, 224) 
+    input_tensor = torch.randn(1, 3, 32, 224) 
     features = model(input_tensor)
     print(features.shape)

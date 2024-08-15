@@ -4,7 +4,7 @@ pretrain: https://vocr.vn/data/vietocr/vgg_transformer.pth
 # url or local path (predict)
 weights: https://vocr.vn/data/vietocr/vgg_transformer.pth
 
-backbone: convnextv2
+backbone: vgg19_bn
 cnn:
     pretrained: True
     # pooling stride size
@@ -22,5 +22,5 @@ cnn:
         - [2, 1]
         - [1, 1]
     # dim of ouput feature map
-    hidden: 16
+    hidden: 256
 
