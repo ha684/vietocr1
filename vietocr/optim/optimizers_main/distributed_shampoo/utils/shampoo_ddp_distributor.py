@@ -14,15 +14,15 @@ from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.distributed as dist
-from distributed_shampoo.shampoo_types import (
+from vietocr.optim.optimizers_main.distributed_shampoo.shampoo_types import (
     CommunicationDType,
     DDPShampooConfig,
     PARAMS,
 )
-from distributed_shampoo.utils.shampoo_block_info import DDPBlockInfo
-from distributed_shampoo.utils.shampoo_dist_utils import get_device_mesh
-from distributed_shampoo.utils.shampoo_distributor import DistributorInterface
-from distributed_shampoo.utils.shampoo_utils import (
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_block_info import DDPBlockInfo
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_dist_utils import get_device_mesh
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_distributor import DistributorInterface
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_utils import (
     compress_list,
     generate_pairwise_indices,
     get_dtype_size,

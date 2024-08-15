@@ -136,3 +136,5 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+train_ha2
+valid_ha2

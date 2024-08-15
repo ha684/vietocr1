@@ -11,13 +11,13 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
 import torch
-from distributed_shampoo.shampoo_types import (
+from vietocr.optim.optimizers_main.distributed_shampoo.shampoo_types import (
     MAX_PRECONDITIONER_DIM,
     PARAMS,
     USE_MERGE_DIMS,
 )
-from distributed_shampoo.utils.shampoo_block_info import BlockInfo
-from distributed_shampoo.utils.shampoo_utils import (
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_block_info import BlockInfo
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_utils import (
     compress_list,
     generate_pairwise_indices,
     merge_small_dims,

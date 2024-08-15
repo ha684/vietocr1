@@ -4,7 +4,7 @@ pretrain: https://vocr.vn/data/vietocr/vgg_seq2seq.pth
 # url or local path (for predict)
 weights: https://vocr.vn/data/vietocr/vgg_seq2seq.pth
 
-backbone: convNext
+backbone: convnextv2
 cnn:
     # pooling stride size
     ss:

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
-from ConvNeXt_V2.models.utils import LayerNorm, GRN
+from vietocr.model.backbone.ConvNeXt_V2.models.utils import LayerNorm, GRN
 
 class Block(nn.Module):
     """ ConvNeXtV2 Block.

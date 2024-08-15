@@ -16,19 +16,19 @@ from types import TracebackType
 from typing import Any, DefaultDict, Optional, Sequence, Tuple, Type, Union
 
 import torch
-from distributed_shampoo.utils.shampoo_block_info import BlockInfo
-from distributed_shampoo.utils.shampoo_quantization import (
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_block_info import BlockInfo
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_quantization import (
     QuantizedTensor,
     QuantizedTensorList,
 )
-from distributed_shampoo.utils.shampoo_utils import compress_list, get_dtype_size
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_utils import compress_list, get_dtype_size
 
-from matrix_functions import (
+from vietocr.optim.optimizers_main.matrix_functions import (
     check_diagonal,
     compute_matrix_root_inverse_residuals,
     matrix_inverse_root,
 )
-from optimizer_modules import OptimizerModule
+from vietocr.optim.optimizers_main.optimizer_modules import OptimizerModule
 from torch import Tensor
 from torch.autograd import profiler
 

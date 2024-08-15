@@ -12,11 +12,11 @@ import typing
 from typing import Optional, Sequence, Tuple, Union
 
 import torch
-from distributed_shampoo.utils.shampoo_block_info import BlockInfo
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_block_info import BlockInfo
 
-from distributed_shampoo.utils.shampoo_utils import compress_list
+from vietocr.optim.optimizers_main.distributed_shampoo.utils.shampoo_utils import compress_list
 
-from optimizer_modules import OptimizerModule
+from vietocr.optim.optimizers_main.optimizer_modules import OptimizerModule
 from torch import Tensor
 
 logger: logging.Logger = logging.getLogger(__name__)

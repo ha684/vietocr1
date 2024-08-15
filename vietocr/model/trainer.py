@@ -15,8 +15,8 @@ from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
 from torch.utils.data import DataLoader
 from einops import rearrange
 from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
-from optim.optimizers_main.distributed_shampoo.distributed_shampoo import DistributedShampoo
-from optim.optimizers_main.distributed_shampoo.shampoo_types import AdamGraftingConfig
+from vietocr.optim.optimizers_main.distributed_shampoo.distributed_shampoo import DistributedShampoo
+from vietocr.optim.optimizers_main.distributed_shampoo.shampoo_types import AdamGraftingConfig
 import torchvision 
 
 from vietocr.tool.utils import compute_accuracy
@@ -98,8 +98,8 @@ class Trainer():
             betas=(0.9, 0.999),
             epsilon=1e-12,
             weight_decay=1e-05,
-            max_preconditioner_dim=8192,
-            precondition_frequency=100,
+            max_preconditioner_dim=1024,
+            precondition_frequency=200,
             use_decoupled_weight_decay=True,
             grafting_config=AdamGraftingConfig(
                 beta2=0.999,
