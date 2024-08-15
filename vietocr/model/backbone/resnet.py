@@ -166,5 +166,5 @@ class ResNet(nn.Module):
         return conv
 
 def Resnet50(ss, hidden=512, pretrained=True):
-    return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3,3], pretrained=pretrained)
+    return ResNet(3, hidden, BasicBlock, [1, 2, 5, 3], pretrained=pretrained)
 # [1, 2, 5, 3]
