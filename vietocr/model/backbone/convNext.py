@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
 from vietocr.model.backbone.convnext_v2.models.utils import LayerNorm, GRN
 import timm
+
 class Block(nn.Module):
     def __init__(self, dim, drop_path=0.):
         super().__init__()
@@ -29,7 +30,7 @@ class Block(nn.Module):
         return x
     
 class ConvNeXtV2(nn.Module):
-    def __init__(self, in_chans=3, num_classes=1000, 
+    def __init__(self, hidden,in_chans=3, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], 
                  drop_path_rate=0., head_init_scale=1.
                  ):
@@ -59,8 +60,7 @@ class ConvNeXtV2(nn.Module):
             cur += depths[i]
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Linear(dims[-1], num_classes)
-        self.feature_reduction = nn.Linear(dims[-1], 256) 
+        self.head = nn.Linear(dims[-1], hidden)
         self.apply(self._init_weights)
 
 
@@ -74,7 +74,7 @@ class ConvNeXtV2(nn.Module):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
         x = self.norm(x.mean([-2, -1]))
-        x = self.feature_reduction(x)
+        x = self.head(x)
         return x
 
     def forward(self, x):
@@ -82,8 +82,8 @@ class ConvNeXtV2(nn.Module):
         x = self.head(x)
         return x
     
-def convnextv2_base(pretrained,**kwargs):
-    model = ConvNeXtV2(depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
+def convnextv2_base(pretrained=True,**kwargs):
+    model = ConvNeXtV2(hidden=256,depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
     if pretrained:
         temp_model = timm.create_model('convnextv2_large', pretrained=True)
         state_dict = temp_model.state_dict()

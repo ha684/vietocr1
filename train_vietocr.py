@@ -3,7 +3,7 @@ from vietocr.tool.config import Cfg
 import os
 config = Cfg.load_config_from_file(r'D:\Workspace\python_code\vietocr1\config\conv_transformer.yml')
 dataset_params = {
-    'name': 'ha2',
+    'name': 'ha',
     'data_root': r'D:\Data\New folder\data',
     'train_annotation': 'label_train.txt',
     'valid_annotation': 'label_test.txt',
