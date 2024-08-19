@@ -30,7 +30,7 @@ class Block(nn.Module):
         return x
     
 class ConvNeXtV2(nn.Module):
-    def __init__(self, hidden,in_chans=3, 
+    def __init__(self, hidden=256,in_chans=3, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], 
                  drop_path_rate=0., head_init_scale=1.
                  ):
@@ -83,7 +83,7 @@ class ConvNeXtV2(nn.Module):
         return x
     
 def convnextv2_base(pretrained=True,**kwargs):
-    model = ConvNeXtV2(hidden=256,depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
+    model = ConvNeXtV2(depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
     if pretrained:
         temp_model = timm.create_model('convnextv2_large', pretrained=True)
         state_dict = temp_model.state_dict()

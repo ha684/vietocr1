@@ -138,3 +138,6 @@ dmypy.json
 cython_debug/
 train_ha2
 valid_ha2
+train_ha
+valid_ha
+checkpoint
