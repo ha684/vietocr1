@@ -9,3 +9,5 @@ cnn:
     pretrained: True
     hidden : 256
 
+seq_modeling: seq2seq
+

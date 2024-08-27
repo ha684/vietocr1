@@ -4,7 +4,7 @@ import os
 config = Cfg.load_config_from_file(r'D:\Workspace\python_code\vietocr1\config\conv_transformer.yml')
 dataset_params = {
     'name': 'ha',
-    'data_root': r'D:\Data\New folder\data',
+    'data_root': r'D:\Workspace\python_code\ImageGeneration\images_out',
     'train_annotation': 'label_train.txt',
     'valid_annotation': 'label_test.txt',
 }
