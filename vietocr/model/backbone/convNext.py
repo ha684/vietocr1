@@ -30,9 +30,9 @@ class Block(nn.Module):
         return x
     
 class ConvNeXtV2(nn.Module):
-    def __init__(self, hidden=256,in_chans=3, 
+    def __init__(self, in_chans=3, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], 
-                 drop_path_rate=0., head_init_scale=1.
+                 drop_path_rate=0., head_init_scale=1.,hidden=768
                  ):
         super().__init__()
         self.depths = depths
@@ -60,7 +60,7 @@ class ConvNeXtV2(nn.Module):
             cur += depths[i]
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Linear(dims[-1], hidden)
+        self.head = nn.Conv2d(dims[-1], hidden,1)
         self.apply(self._init_weights)
 
 
@@ -73,13 +73,14 @@ class ConvNeXtV2(nn.Module):
         for i in range(4):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
-        x = self.norm(x.mean([-2, -1]))
         x = self.head(x)
         return x
 
     def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
+        x = self.forward_features(x) 
+        x = x.transpose(-1, -2)
+        x = x.flatten(2)
+        x = x.permute(-1, 0, 1)
         return x
     
 def convnextv2_base(pretrained=True,**kwargs):
@@ -89,10 +90,10 @@ def convnextv2_base(pretrained=True,**kwargs):
         state_dict = temp_model.state_dict()
         model.load_state_dict(state_dict, strict=False)
     model.to('cuda')
-    return model.forward_features
+    return model
 
 if __name__ == "__main__":
     model = convnextv2_base(pretrained=True)
-    input_tensor = torch.randn(1, 3, 224, 224) 
+    input_tensor = torch.randn(1, 3, 224, 224).to('cuda')
     features = model(input_tensor)
     print(features.shape)

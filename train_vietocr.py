@@ -1,10 +1,10 @@
 from vietocr.model.trainer import Trainer
 from vietocr.tool.config import Cfg
 import os
-config = Cfg.load_config_from_file(r'D:\Workspace\python_code\vietocr1\config\conv_transformer.yml')
+config = Cfg.load_config_from_name('vgg_seq2seq')
 dataset_params = {
-    'name': 'ha',
-    'data_root': r'D:\Workspace\python_code\ImageGeneration\images_out',
+    'name': 'ha1',
+    'data_root': r'D:\Workspace\python_code\ImageGenerations\images_out',
     'train_annotation': 'label_train.txt',
     'valid_annotation': 'label_test.txt',
 }
@@ -16,9 +16,12 @@ params = {
     'checkpoint': './checkpoint/transformers_checkpoint.pth',
     'export': './weights/transformers.pth',
     'metrics': 10000,
-    'patience': 5
+    'patience': 5,
+    'batch_size':1
 }
-
+config['vocab'] = """
+aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&'()*+,-./:;<=>?@[]^_`{|}~²≥—–“”³…’'́'"' '\\
+"""
 config['trainer'].update(params)
 config['dataset'].update(dataset_params)
 config['device'] = 'cuda'

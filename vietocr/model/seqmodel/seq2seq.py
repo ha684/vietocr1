@@ -19,11 +19,14 @@ class Encoder(nn.Module):
         """
 
         embedded = self.dropout(src)
-        
+        print("embedded shape:", embedded.shape)
         outputs, hidden = self.rnn(embedded)
-                                 
+        print("hidden shape before fc:", hidden.shape)   
+        print('outputs shape:', outputs.shape)              
         hidden = torch.tanh(self.fc(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim = 1)))
         
+        print("hidden shape after fc:", torch.tanh(self.fc(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim = 1))).shape)
+
         return outputs, hidden
 
 class Attention(nn.Module):

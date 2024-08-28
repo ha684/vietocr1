@@ -25,6 +25,15 @@ class Cfg(dict):
         base_config.update(config)
 
         return Cfg(base_config)
+    
+    @staticmethod
+    def load_config(base_config,fname):
+        with open(base_config, encoding='utf-8') as f:
+            base_config = yaml.safe_load(f)
+        print(base_config)
+        with open(fname, encoding='utf-8') as file:
+            config = yaml.safe_load(file)
+        base_config.update(config)
 
     @staticmethod
     def load_config_from_name(name):
