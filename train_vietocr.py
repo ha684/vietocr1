@@ -1,7 +1,7 @@
 from vietocr.model.trainer import Trainer
 from vietocr.tool.config import Cfg
 import os
-config = Cfg.load_config_from_name('vgg_seq2seq')
+config = Cfg.load_config_from_file('./vietocr/config/conv_seq2seq.yml')
 dataset_params = {
     'name': 'ha1',
     'data_root': r'D:\Workspace\python_code\ImageGenerations\images_out',
@@ -19,9 +19,7 @@ params = {
     'patience': 5,
     'batch_size':1
 }
-config['vocab'] = """
-aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&'()*+,-./:;<=>?@[]^_`{|}~²≥—–“”³…’'́'"' '\\
-"""
+config['vocab'] = 'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&''()*+,-./:;<=>?@[\]^_`{|}~’ '
 config['trainer'].update(params)
 config['dataset'].update(dataset_params)
 config['device'] = 'cuda'

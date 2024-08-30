@@ -1,3 +1,9 @@
+# for training
+pretrain: https://vocr.vn/data/vietocr/vgg_transformer.pth
+
+# url or local path (predict)
+weights: https://vocr.vn/data/vietocr/vgg_transformer.pth
+
 backbone: convNext
 cnn:
     pretrained: True
