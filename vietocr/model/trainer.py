@@ -106,10 +106,10 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen(r'D:\Workspace\python_code\train_{}'.format(self.dataset_name), 
+        self.train_gen = self.data_gen(r'/kaggle/input/images1/train_{}'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         if self.valid_annotation:
-            self.valid_gen = self.data_gen(r'D:\Workspace\python_code\valid_{}'.format(self.dataset_name), 
+            self.valid_gen = self.data_gen(r'/kaggle/input/images1/valid_{}'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []
