@@ -42,12 +42,15 @@ class ConvNeXtV2(nn.Module):
             nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
+        print(ks)
+        print('----------------')
+        print(ss)
         self.downsample_layers.append(stem)
         pool_idx = 0  
-        for i in range(3):
+        for i in range(4):
             downsample_layer = nn.Sequential(
                     LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
-                    nn.AvgPool2d(kernel_size=ks[pool_idx], stride=ss[pool_idx], padding=1),
+                    nn.AvgPool2d(kernel_size=ks[pool_idx], stride=ss[pool_idx], padding=0),
             )
             self.downsample_layers.append(downsample_layer)
             pool_idx += 1
