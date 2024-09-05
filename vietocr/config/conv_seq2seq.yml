@@ -6,6 +6,21 @@ weights: https://vocr.vn/data/vietocr/vgg_transformer.pth
 
 backbone: convNext
 cnn:
+    # pooling stride size
+    ss:
+        - [2, 2]
+        - [2, 2]
+        - [2, 1]
+        - [2, 1]
+        - [1, 1]         
+    # pooling kernel size 
+    ks:
+        - [2, 2]
+        - [2, 2]
+        - [2, 1]
+        - [2, 1]
+        - [1, 1]
+    drop_path_rate : 0.1
     pretrained: True
     hidden: 512
 seq_modeling: seq2seq
