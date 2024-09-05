@@ -8,7 +8,7 @@ import timm
 class Block(nn.Module):
     def __init__(self, dim, drop_path=0.):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=3, padding=1, groups=dim)
         self.norm = LayerNorm(dim, eps=1e-6)
         self.pwconv1 = nn.Linear(dim, 4 * dim)
         self.act = nn.GELU()
@@ -47,7 +47,7 @@ class ConvNeXtV2(nn.Module):
         for i in range(3):
             downsample_layer = nn.Sequential(
                     LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
-                    nn.AvgPool2d(kernel_size=ks[pool_idx], stride=ss[pool_idx], padding=0),
+                    nn.AvgPool2d(kernel_size=ks[pool_idx], stride=ss[pool_idx], padding=1),
             )
             self.downsample_layers.append(downsample_layer)
             pool_idx += 1
