@@ -9,5 +9,5 @@ cnn:
     pretrained: True
     hidden : 256
 
-seq_modeling: transformer
+seq_modeling: decoder
 

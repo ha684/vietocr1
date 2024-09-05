@@ -139,7 +139,6 @@ class Trainer():
             start = time.time()
             loss = self.step(batch)
             total_gpu_time += time.time() - start
-
             total_loss += loss
             self.train_losses.append((self.iter, loss))
 
@@ -289,11 +288,10 @@ class Trainer():
 
     def load_checkpoint(self, filename):
         checkpoint = torch.load(filename)
-        optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
+        # optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.model.load_state_dict(checkpoint['state_dict'])
         self.iter = checkpoint['iter']
-
         self.train_losses = checkpoint['train_losses']
 
     def save_checkpoint(self, filename):
@@ -366,7 +364,32 @@ class Trainer():
                 image_max_width = self.config['dataset']['image_max_width'])
 
         return data_gen
+    
+    def steps(self, batch,prev_k_list,prev_v_list):
+        self.model.train()
 
+        batch = self.batch_to_device(batch)
+        img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
+        
+        outputs,new_k_list,new_v_list = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask,k_list=prev_k_list,v_list = prev_v_list)
+#        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
+        outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
+        tgt_output = tgt_output.view(-1)#flatten()
+        
+        loss = self.criterion(outputs, tgt_output)
+        self.optimizer.zero_grad()
+
+        loss.backward()
+        
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
+
+        self.optimizer.step()
+        self.scheduler.step()
+
+        loss_item = loss.item()
+
+        return loss_item,new_k_list,new_v_list
+    
     def step(self, batch):
         self.model.train()
 
