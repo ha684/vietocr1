@@ -124,7 +124,6 @@ def build_model(config):
             config['cnn'], 
             config['transformer'],
             config['seq_modeling'])
-    model = torch.nn.DataParallel(model) 
     model = model.to(device)
 
     return model, vocab
