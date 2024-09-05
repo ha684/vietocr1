@@ -35,7 +35,6 @@ class VietOCR(nn.Module):
             - output: b t v
         """
         src = self.cnn(img)
-
         if self.seq_modeling == 'transformer':
             outputs = self.transformer(src, tgt_input, tgt_key_padding_mask=tgt_key_padding_mask)
         elif self.seq_modeling == 'decoder':

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class Encoder(nn.Module):
     def __init__(self, emb_dim, enc_hid_dim, dec_hid_dim, dropout):
@@ -14,13 +15,16 @@ class Encoder(nn.Module):
     def forward(self, src):
         """
         src: src_len x batch_size x img_channel
+        src_lengths: batch_size (lengths of each sequence in the batch)
         outputs: src_len x batch_size x hid_dim 
         hidden: batch_size x hid_dim
         """
-
+        
         embedded = self.dropout(src)
-        outputs, hidden = self.rnn(embedded)
-        hidden = torch.tanh(self.fc(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim = 1)))
+        # Pack padded sequence
+        outputs,hidden = self.rnn(embedded)
+        # Concatenate the hidden states from both directions
+        hidden = torch.tanh(self.fc(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim=1)))
         return outputs, hidden
 
 class Attention(nn.Module):
@@ -109,7 +113,7 @@ class Seq2Seq(nn.Module):
         """
         Create a mask for padding tokens in the source sequence.
         """
-        mask = (src != 0).permute(1, 0)  
+        mask = (src[:, :, 0] != 0).permute(1, 0) 
         return mask
     
     def forward_encoder(self, src):       
@@ -123,7 +127,7 @@ class Seq2Seq(nn.Module):
 
         return (hidden, encoder_outputs)
 
-    def forward_decoder(self, tgt, memory):
+    def forward_decoder(self, tgt, memory,mask):
         """
         tgt: timestep x batch_size 
         hidden: batch_size x hid_dim
@@ -133,7 +137,7 @@ class Seq2Seq(nn.Module):
         
         tgt = tgt[-1]
         hidden, encoder_outputs = memory
-        output, hidden, _ = self.decoder(tgt, hidden, encoder_outputs)
+        output, hidden, _ = self.decoder(tgt, hidden, encoder_outputs,mask)
         output = output.unsqueeze(1)
         
         return output, (hidden, encoder_outputs)
