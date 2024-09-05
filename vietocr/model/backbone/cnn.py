@@ -4,7 +4,7 @@ from torch import nn
 import vietocr.model.backbone.vgg as vgg
 from vietocr.model.backbone.resnet import Resnet50
 from vietocr.model.backbone.convNext import convnextv2_base
-from vietocr.model.backbone.vision import mamba_vision_B
+# from vietocr.model.backbone.vision import mamba_vision_B
 class CNN(nn.Module):
     def __init__(self, backbone, **kwargs):
         super(CNN, self).__init__()
