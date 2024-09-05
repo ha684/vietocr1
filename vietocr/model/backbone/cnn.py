@@ -17,8 +17,8 @@ class CNN(nn.Module):
             self.model = Resnet50(**kwargs)
         elif backbone == 'convNext':
             self.model = convnextv2_base(**kwargs)
-        elif backbone == 'vision_transformer':
-            self.model = mamba_vision_B()
+        # elif backbone == 'vision_transformer':
+        #     self.model = mamba_vision_B()
 
     def forward(self, x):
         return self.model(x)
