@@ -32,13 +32,13 @@ class Block(nn.Module):
 class ConvNeXtV2(nn.Module):
     def __init__(self, in_chans=3, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], 
-                 drop_path_rate=0., head_init_scale=1.,hidden=768
+                 drop_path_rate=0., head_init_scale=1.,hidden=512
                  ):
         super().__init__()
         self.depths = depths
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
-            nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
+            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
         self.downsample_layers.append(stem)
@@ -84,9 +84,9 @@ class ConvNeXtV2(nn.Module):
         return x
     
 def convnextv2_base(pretrained=True,**kwargs):
-    model = ConvNeXtV2(depths=[3, 3, 27, 3], dims=[192, 384, 768, 1536], **kwargs)
+    model = ConvNeXtV2(depths=[2, 2, 6, 2], dims=[64, 128, 256, 512], **kwargs)
     if pretrained:
-        temp_model = timm.create_model('convnextv2_large', pretrained=True)
+        temp_model = timm.create_model('convnextv2_pico', pretrained=True)
         state_dict = temp_model.state_dict()
         model.load_state_dict(state_dict, strict=False)
     model.to('cuda')
