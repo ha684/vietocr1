@@ -88,9 +88,9 @@ class ConvNeXtV2(nn.Module):
         return x
     
 def convnextv2_base(pretrained=True,**kwargs):
-    model = ConvNeXtV2(depths=[2, 2, 6, 2], dims=[64, 128, 256, 512], **kwargs)
+    model = ConvNeXtV2(depths=[2, 2, 6, 2], dims=[40, 80, 160, 320], **kwargs)
     if pretrained:
-        temp_model = timm.create_model('convnextv2_pico', pretrained=True)
+        temp_model = timm.create_model('convnextv2_atto', pretrained=True)
         state_dict = temp_model.state_dict()
         model.load_state_dict(state_dict, strict=False)
     model.to('cuda')
