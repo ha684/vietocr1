@@ -65,7 +65,7 @@ class ConvNeXtV2(nn.Module):
             cur += depths[i]
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Conv2d(dims[-1], hidden,1)
+        self.head = nn.Linear(dims[-1], hidden)
         self.apply(self._init_weights)
 
 
