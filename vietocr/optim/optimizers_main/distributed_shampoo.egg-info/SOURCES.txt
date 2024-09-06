@@ -1,0 +1,17 @@
+LICENSE
+README.md
+setup.py
+distributed_shampoo/__init__.py
+distributed_shampoo/distributed_shampoo.py
+distributed_shampoo/shampoo_types.py
+distributed_shampoo.egg-info/PKG-INFO
+distributed_shampoo.egg-info/SOURCES.txt
+distributed_shampoo.egg-info/dependency_links.txt
+distributed_shampoo.egg-info/top_level.txt
+distributed_shampoo/examples/__init__.py
+distributed_shampoo/examples/convnet.py
+distributed_shampoo/examples/ddp_cifar10_example.py
+distributed_shampoo/examples/default_cifar10_example.py
+distributed_shampoo/examples/fsdp_cifar10_example.py
+distributed_shampoo/examples/hsdp_cifar10_example.py
+distributed_shampoo/examples/trainer_utils.py

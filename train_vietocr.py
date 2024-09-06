@@ -38,7 +38,8 @@ try:
     trainer.train()
     trainer.save_checkpoint(checkpoint_path)
 except KeyboardInterrupt:
-    trainer.save_checkpoint(checkpoint_path)
-    print("Training interrupted. Checkpoint saved.")
+    pass
+    # trainer.save_checkpoint(checkpoint_path)
+    # print("Training interrupted. Checkpoint saved.")
 
 config.save('config1.yaml')
