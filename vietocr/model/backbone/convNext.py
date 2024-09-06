@@ -48,7 +48,7 @@ class ConvNeXtV2(nn.Module):
         for i in range(3):
             downsample_layer = nn.Sequential(
                     LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
-                    nn.Conv2d(dims[i], dims[i + 1], kernel_size=2, stride=1),
+                    nn.Conv2d(dims[i], dims[i + 1], kernel_size=2, stride=2),
                     )
             self.downsample_layers.append(downsample_layer)
             pool_idx += 1
