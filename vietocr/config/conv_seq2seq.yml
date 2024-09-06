@@ -12,7 +12,6 @@ cnn:
         - [2, 2]
         - [2, 1]
 
-    drop_path_rate : 0.1
     pretrained: True
     hidden: 512
 seq_modeling: seq2seq
