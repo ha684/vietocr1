@@ -25,7 +25,7 @@ config['dataset'].update(dataset_params)
 config['device'] = 'cuda'
 config['dataloader']['num_workers'] = 0
 
-trainer = Trainer(config, pretrained=False)
+trainer = Trainer(config)
 
 checkpoint_path = './checkpoint/vgg_transformer_checkpoint.pth'
 if os.path.exists(checkpoint_path):

@@ -60,7 +60,7 @@ class EarlyStopping:
         self.val_loss_min = val_loss
         
 class Trainer():
-    def __init__(self, config, pretrained=True, augmentor=ImgAugTransformV2()):
+    def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
 
         self.config = config
         self.model, self.vocab = build_model(config)
