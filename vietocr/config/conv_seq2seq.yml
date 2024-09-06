@@ -3,13 +3,13 @@ cnn:
     # pooling stride size
     ss:
         - [2, 2]
-        - [2, 1]
+        - [2, 2]
         - [1, 1]
          
     # pooling kernel size 
     ks:
         - [2, 2]
-        - [2, 1]
+        - [2, 2]
         - [1, 1]
 
     pretrained: True
