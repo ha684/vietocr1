@@ -8,7 +8,7 @@ import timm
 class Block(nn.Module):
     def __init__(self, dim, drop_path=0.):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=3, padding=1, groups=dim)
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=5, padding=2, groups=dim)
         self.norm = LayerNorm(dim, eps=1e-6)
         self.pwconv1 = nn.Linear(dim, 4 * dim)
         self.act = nn.GELU()
