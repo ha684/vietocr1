@@ -39,7 +39,7 @@ class ConvNeXtV2(nn.Module):
         self.depths = depths
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
-            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=1),
+            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
 
@@ -88,9 +88,9 @@ class ConvNeXtV2(nn.Module):
         return x
     
 def convnextv2_base(pretrained=True,**kwargs):
-    model = ConvNeXtV2(depths=[2, 2, 6, 2], dims=[40, 80, 160, 320], **kwargs)
+    model = ConvNeXtV2(depths=[2, 2, 6, 2], dims=[64, 128, 256, 512], **kwargs)
     if pretrained:
-        temp_model = timm.create_model('convnextv2_atto', pretrained=True)
+        temp_model = timm.create_model('convnextv2_pico', pretrained=True)
         state_dict = temp_model.state_dict()
         model.load_state_dict(state_dict, strict=False)
     model.to('cuda')
