@@ -34,7 +34,7 @@ class Attention(nn.Module):
         self.attn = nn.Linear((enc_hid_dim * 2) + dec_hid_dim, dec_hid_dim)
         self.v = nn.Linear(dec_hid_dim, 1, bias = False)
         
-    def forward(self, hidden, encoder_outputs,mask):
+    def forward(self, hidden, encoder_outputs):
         """
         hidden: batch_size x hid_dim
         encoder_outputs: src_len x batch_size x hid_dim,
@@ -51,7 +51,6 @@ class Attention(nn.Module):
         energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim = 2))) 
         
         attention = self.v(energy).squeeze(2)
-        attention = attention.masked_fill(mask == 0, -1e9)
         return F.softmax(attention, dim = 1)
 
 class Decoder(nn.Module):
@@ -66,7 +65,7 @@ class Decoder(nn.Module):
         self.fc_out = nn.Linear((enc_hid_dim * 2) + dec_hid_dim + emb_dim, output_dim)
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, input, hidden, encoder_outputs,mask):
+    def forward(self, input, hidden, encoder_outputs):
         """
         inputs: batch_size
         hidden: batch_size x hid_dim
@@ -77,7 +76,7 @@ class Decoder(nn.Module):
         
         embedded = self.dropout(self.embedding(input))
         
-        a = self.attention(hidden, encoder_outputs,mask)
+        a = self.attention(hidden, encoder_outputs)
                 
         a = a.unsqueeze(1)
         
@@ -108,13 +107,6 @@ class Seq2Seq(nn.Module):
         
         self.encoder = Encoder(img_channel, encoder_hidden, decoder_hidden, dropout)
         self.decoder = Decoder(vocab_size, decoder_embedded, encoder_hidden, decoder_hidden, dropout, attn)
-        
-    def create_mask(self, src):
-        """
-        Create a mask for padding tokens in the source sequence.
-        """
-        mask = (src[:, :, 0] != 0).permute(1, 0) 
-        return mask
     
     def forward_encoder(self, src):       
         """
@@ -127,7 +119,7 @@ class Seq2Seq(nn.Module):
 
         return (hidden, encoder_outputs)
 
-    def forward_decoder(self, tgt, memory,mask):
+    def forward_decoder(self, tgt, memory):
         """
         tgt: timestep x batch_size 
         hidden: batch_size x hid_dim
@@ -137,7 +129,7 @@ class Seq2Seq(nn.Module):
         
         tgt = tgt[-1]
         hidden, encoder_outputs = memory
-        output, hidden, _ = self.decoder(tgt, hidden, encoder_outputs,mask)
+        output, hidden, _ = self.decoder(tgt, hidden, encoder_outputs)
         output = output.unsqueeze(1)
         
         return output, (hidden, encoder_outputs)
@@ -156,11 +148,10 @@ class Seq2Seq(nn.Module):
 
         outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(device)
         encoder_outputs, hidden = self.encoder(src)
-        mask = self.create_mask(src)
         
         for t in range(trg_len):
             input = trg[t] 
-            output, hidden, _ = self.decoder(input, hidden, encoder_outputs,mask)
+            output, hidden, _ = self.decoder(input, hidden, encoder_outputs)
             
             outputs[t] = output
             

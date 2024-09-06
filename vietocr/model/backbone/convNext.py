@@ -39,7 +39,7 @@ class ConvNeXtV2(nn.Module):
         self.depths = depths
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
-            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=1),
+            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
 
@@ -78,11 +78,12 @@ class ConvNeXtV2(nn.Module):
         for i in range(4):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
-        x = self.head(x)
+        x = self.norm(x)
         return x
 
     def forward(self, x):
         x = self.forward_features(x) 
+        x = self.head(x)
         x = x.transpose(-1, -2)
         x = x.flatten(2)
         x = x.permute(-1, 0, 1)
