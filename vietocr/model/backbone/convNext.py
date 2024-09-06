@@ -8,7 +8,7 @@ import timm
 class Block(nn.Module):
     def __init__(self, dim, drop_path=0.):
         super().__init__()
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=3, padding=1, groups=dim)
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
         self.norm = LayerNorm(dim, eps=1e-6)
         self.pwconv1 = nn.Linear(dim, 4 * dim)
         self.act = nn.GELU()
@@ -39,7 +39,7 @@ class ConvNeXtV2(nn.Module):
         self.depths = depths
         self.downsample_layers = nn.ModuleList()
         stem = nn.Sequential(
-            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
+            nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=1),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
 
@@ -65,7 +65,7 @@ class ConvNeXtV2(nn.Module):
             cur += depths[i]
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Linear(dims[-1], hidden)
+        self.head = nn.Conv2d(dims[-1], hidden,1)
         self.apply(self._init_weights)
 
 
@@ -78,12 +78,11 @@ class ConvNeXtV2(nn.Module):
         for i in range(4):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
-        return self.norm(x.mean([-2, -1])) # global average pooling, (N, C, H, W) -> (N, C)
-
+        x = self.head(x)
+        return x
 
     def forward(self, x):
         x = self.forward_features(x) 
-        x = self.head(x)
         x = x.transpose(-1, -2)
         x = x.flatten(2)
         x = x.permute(-1, 0, 1)

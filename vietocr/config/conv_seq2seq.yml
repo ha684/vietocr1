@@ -25,10 +25,10 @@ cnn:
     hidden: 512
 seq_modeling: seq2seq
 transformer:
-    encoder_hidden: 256
-    decoder_hidden: 256
+    encoder_hidden: 512
+    decoder_hidden: 512
     img_channel: 512
-    decoder_embedded: 256
+    decoder_embedded: 512
     dropout: 0.1
 
 optimizer:
