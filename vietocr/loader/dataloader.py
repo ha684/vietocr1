@@ -93,6 +93,7 @@ class OCRDataset(Dataset):
 
     def read_data(self, idx):
         buf, label, img_path = self.read_buffer(idx) 
+        print(label)
         try:
             img = Image.open(buf).convert('RGB')
         except:
@@ -105,7 +106,7 @@ class OCRDataset(Dataset):
         img_bw = process_image(img, self.image_height, self.image_min_width, self.image_max_width)
             
         word = self.vocab.encode(label)
-
+        print(word)
         return img_bw, word, img_path
 
     def __getitem__(self, idx):
