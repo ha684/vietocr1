@@ -24,6 +24,7 @@ config['trainer'].update(params)
 config['dataset'].update(dataset_params)
 config['device'] = 'cuda'
 config['dataloader']['num_workers'] = 0
+config['vocab'] = 'aAàÀảẢãÃáÁạẠ¼çăĂằВẰẳبẲоẵẴắẮōặТẶØلâûøÂęüµМيöÖРЖầطСºë½ẦćОКšēقẩÆА中ĭäỻوẨẫẪấẤậẬbïBаαčcμCdıDđĐÐeEنèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&''()*+,-./:;<=>?@[\]^_`{|}~’�Ç¾³² ' + "'"
 
 trainer = Trainer(config)
 
