@@ -58,7 +58,7 @@ class EarlyStopping:
             print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
-        
+pretrained_conv = torchvision.models.convnext_small
 class Trainer():
     def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
 
@@ -94,7 +94,7 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
+        self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09,weight_decay=0.1)
         self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
         # self.optimizer = ScheduledOptim(
         #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
@@ -106,10 +106,10 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen('/kaggle/input/folder5/train_ha5'.format(self.dataset_name), 
+        self.train_gen = self.data_gen('train_{}'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         if self.valid_annotation:
-            self.valid_gen = self.data_gen('/kaggle/input/folder5/valid_ha5'.format(self.dataset_name), 
+            self.valid_gen = self.data_gen('valid_{}'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []

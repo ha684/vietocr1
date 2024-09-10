@@ -1,9 +1,9 @@
 aug:
   image_aug: true
   masked_language_model: true
-backbone: vgg19_bn
+backbone: convNext
 cnn:
-  hidden: 256
+  hidden: 512
   ks:
   - - 2
     - 2
@@ -11,20 +11,13 @@ cnn:
     - 2
   - - 2
     - 1
-  - - 2
-    - 1
-  - - 1
-    - 1
+  pretrained: false
   ss:
   - - 2
     - 2
   - - 2
     - 2
   - - 2
-    - 1
-  - - 2
-    - 1
-  - - 1
     - 1
 dataloader:
   num_workers: 0
@@ -43,7 +36,6 @@ optimizer:
   pct_start: 0.1
 predictor:
   beamsearch: false
-pretrain: https://vocr.vn/data/vietocr/vgg_seq2seq.pth
 quiet: false
 seq_modeling: seq2seq
 trainer:
@@ -54,14 +46,13 @@ trainer:
   log: ./train.log
   metrics: 10000
   patience: 5
-  print_every: 100
+  print_every: 1
   valid_every: 1000
 transformer:
-  decoder_embedded: 256
-  decoder_hidden: 256
+  decoder_embedded: 512
+  decoder_hidden: 512
   dropout: 0.1
-  encoder_hidden: 256
-  img_channel: 256
+  encoder_hidden: 512
+  img_channel: 512
 vocab: aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&()*+,-./:;<=>?@[\]^_`{|}~’
   '
-weights: https://vocr.vn/data/vietocr/vgg_seq2seq.pth

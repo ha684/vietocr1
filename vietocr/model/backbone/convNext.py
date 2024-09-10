@@ -32,42 +32,38 @@ class Block(nn.Module):
 class ConvNeXtV2(nn.Module):
     def __init__(self, in_chans=3, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], 
-                 drop_path_rate=0., head_init_scale=1.,hidden=512,
-                 ks=None,ss=None,
-                 ):
+                 drop_path_rate=0., head_init_scale=1., hidden=512,
+                 ks=None, ss=None):
         super().__init__()
         self.depths = depths
-        self.downsample_layers = nn.ModuleList()
+        
+        # Create features similar to PyTorch implementation
+        self.features = nn.Sequential()
         stem = nn.Sequential(
             nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
         )
+        self.features.append(stem)
 
-        self.downsample_layers.append(stem)
-        pool_idx = 0  
-        for i in range(3):
-            downsample_layer = nn.Sequential(
-                    LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
-                    nn.AvgPool2d(kernel_size=ks[pool_idx], stride=ss[pool_idx], padding=0),
-                    nn.Conv2d(dims[i], dims[i + 1], kernel_size=1, stride=1),
-                    )
-            self.downsample_layers.append(downsample_layer)
-            pool_idx += 1
-
-        self.stages = nn.ModuleList()
-        dp_rates=[x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))] 
-        cur = 0
+        total_stage_blocks = sum(depths)
+        stage_block_id = 0
         for i in range(4):
-            stage = nn.Sequential(
-                *[Block(dim=dims[i], drop_path=dp_rates[cur + j]) for j in range(depths[i])]
-            )
-            self.stages.append(stage)
-            cur += depths[i]
+            stage = nn.Sequential()
+            for j in range(depths[i]):
+                stage.append(Block(dim=dims[i], drop_path=drop_path_rate * stage_block_id / total_stage_blocks))
+                stage_block_id += 1
+            self.features.append(stage)
+            if i < 3:  # Add downsampling layer after each stage except the last
+                downsample = nn.Sequential(
+                    LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
+                    nn.AvgPool2d(kernel_size=ks[i], stride=ss[i], padding=0),
+                    nn.Conv2d(dims[i], dims[i+1], kernel_size=1, stride=1),
+                )
+                self.features.append(downsample)
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Conv2d(dims[-1], hidden,1)
+        self.last_conv_1x1 = nn.Conv2d(dims[-1], hidden, 1)
         self.apply(self._init_weights)
-
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
@@ -75,30 +71,33 @@ class ConvNeXtV2(nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward_features(self, x):
-        for i in range(4):
-            x = self.downsample_layers[i](x)
-            x = self.stages[i](x)
-        x = self.head(x)
+        for feature in self.features:
+            x = feature(x)
         return x
 
     def forward(self, x):
-        x = self.forward_features(x) 
+        x = self.forward_features(x)
+        x = self.last_conv_1x1(x)
         x = x.transpose(-1, -2)
         x = x.flatten(2)
         x = x.permute(-1, 0, 1)
         return x
-    
-def convnextv2_base(pretrained=True,**kwargs):
+
+def convnextv2_base(pretrained=True, **kwargs):
     model = ConvNeXtV2(depths=[2, 2, 6, 2], dims=[64, 128, 256, 512], **kwargs)
     if pretrained:
         temp_model = timm.create_model('convnextv2_pico', pretrained=True)
         state_dict = temp_model.state_dict()
         model.load_state_dict(state_dict, strict=False)
-    model.to('cuda')
     return model
 
 if __name__ == "__main__":
-    model = convnextv2_base(pretrained=True)
+    model = convnextv2_base(pretrained=True, ks=[2,2,2], ss=[2,2,2])
+    model.freeze()  # Freeze all layers except last_conv_1x1
     input_tensor = torch.randn(1, 3, 224, 224).to('cuda')
     features = model(input_tensor)
     print(features.shape)
+    
+    # Verify which parameters are frozen
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.requires_grad}")
