@@ -1,10 +1,10 @@
 import torch
 from torch import nn
-from vit_pytorch import ViT
+# from vit_pytorch import ViT
 import vietocr.model.backbone.vgg as vgg
 from vietocr.model.backbone.resnet import Resnet50
 import vietocr.model.backbone.convNext as convnet
-from vietocr.model.backbone.vision import get_encoder
+# from vietocr.model.backbone.vision import get_encoder
 # from timm.models.vision_transformer_hybrid import vit_small_r26_s32_224_in21k
 # from vietocr.model.backbone.vision import mamba_vision_B
 class CNN(nn.Module):
@@ -19,8 +19,8 @@ class CNN(nn.Module):
             self.model = Resnet50(**kwargs)
         elif backbone == 'convNext':
             self.model = convnet.convnextv2_base(**kwargs)
-        elif backbone == 'vision_transformer':
-            self.model = ViT(**kwargs)
+        # elif backbone == 'vision_transformer':
+        #     self.model = ViT(**kwargs)
 
     def forward(self, x):
         return self.model(x)
