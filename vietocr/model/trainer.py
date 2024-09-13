@@ -24,7 +24,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
-
+from vietocr.model.backbone.cnn import CNN
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
         self.patience = patience
@@ -58,6 +58,7 @@ class EarlyStopping:
             print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
+
 class Trainer():
     def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
 
@@ -93,7 +94,8 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09,weight_decay=0.001)
+        cnn = CNN(config['backbone'],**config['cnn'])
+        self.optimizer = cnn.get_optimizer()
         self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
         # self.optimizer = ScheduledOptim(
         #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
@@ -105,10 +107,10 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
+        self.train_gen = self.data_gen('/kaggle/input/folder1/train_ha1'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         if self.valid_annotation:
-            self.valid_gen = self.data_gen('/kaggle/input/folder2/valid_ha1'.format(self.dataset_name), 
+            self.valid_gen = self.data_gen('/kaggle/input/folder1/valid_ha1'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []

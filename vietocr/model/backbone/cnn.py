@@ -60,19 +60,40 @@ class CNN(nn.Module):
             self.unfreeze()
         self.current_epoch += 1
 
-    def get_optimizer(self, base_lr: float = 1e-3, lr_multiplier: float = 2.0):
+    def get_optimizer(self, base_lr: float = 1e-4, lr_multiplier: float = 0.5):
+        def belongs_to_stage(param_name, prefixes):
+            return any(param_name.startswith(prefix) for prefix in prefixes)
         params = list(self.model.features.named_parameters())
-        layer_groups = 4
-        splits = [len(params) * i // layer_groups for i in range(layer_groups + 1)]
-        
-        optimizer_params = [
-            {
-                'params': [p for n, p in params[splits[i]:splits[i+1]] if p.requires_grad],
-                'lr': base_lr * (lr_multiplier ** i)
-            }
-            for i in range(layer_groups)
-        ]
-        return torch.optim.AdamW(optimizer_params)
+        stage_prefixes = {
+                        'stage1': ['1.'],
+                        'stage2': ['2.'],
+                        'stage3': ['3.'],
+                        'stage4': ['4.'],
+                        'stage5': ['5.'],
+                        'stage6': ['6.'],
+                        'stage7': ['7.']
+                    }
+        param_groups = []
+        for i, (stage_name, prefixes) in enumerate(stage_prefixes.items()):
+            stage_params = [p for n, p in params if belongs_to_stage(n, prefixes)]
+            if stage_params:
+                lr = base_lr * (lr_multiplier ** i)
+                param_groups.append({
+                    'params': stage_params,
+                    'lr': lr
+                })
+        other_params = [p for n, p in params if not any(belongs_to_stage(n, prefixes) for prefixes in stage_prefixes.values())]
+        if other_params:
+            param_groups.append({
+                'params': other_params,
+                'lr': base_lr 
+            })
+        return torch.optim.AdamW(
+            param_groups, 
+            betas=(0.9, 0.98), 
+            eps=1e-09,
+            weight_decay=0.001
+        )
 
 
     def report_layers(self):
