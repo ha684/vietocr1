@@ -24,7 +24,6 @@ class CNN(nn.Module):
         self.unfreeze_schedule = self._calculate_unfreeze_schedule()
         
         self.freeze()  
-        self.report_layers()  
         
     def _calculate_unfreeze_schedule(self):
         speed = 3.0  
@@ -54,7 +53,6 @@ class CNN(nn.Module):
                 self.frozen_layers = target_frozen
                 self.freeze()
                 print(f"Epoch {self.current_epoch}: Unfrozen to {self.total_layers - target_frozen} layers. {target_frozen} layers still frozen.")
-                self.report_layers() 
         elif self.frozen_layers > 0:
             print('unfreeze')
             self.unfreeze()
