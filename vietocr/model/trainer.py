@@ -27,12 +27,6 @@ import time
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
-        """
-        Args:
-            patience (int): How many epochs to wait after last time validation loss improved.
-            verbose (bool): If True, prints a message for each validation loss improvement.
-            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-        """
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -42,7 +36,7 @@ class EarlyStopping:
         self.delta = delta
 
     def __call__(self, val_loss, model, path):
-        score = -val_loss  # Lower validation loss is better
+        score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
@@ -50,29 +44,26 @@ class EarlyStopping:
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience} patience epochs')
+                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
-            if self.verbose and self.counter > 0:
-                print(f'Validation loss improved after {self.counter} epochs of no improvement.')
             self.best_score = score
             self.save_checkpoint(val_loss, model, path)
-            self.counter = 0  # Reset counter if validation loss improves
+            self.counter = 0
 
     def save_checkpoint(self, val_loss, model, path):
-        """Saves model when validation loss decreases."""
+        '''Saves model when validation loss decreases.'''
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model...')
+            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
-
 class Trainer():
     def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
 
         self.config = config
         self.model, self.vocab = build_model(config)
-        self.num_epochs = config['trainer']['epochs']
+        
         self.device = config['device']
         self.num_iters = config['trainer']['iters']
         self.beamsearch = config['predictor']['beamsearch']
@@ -103,7 +94,7 @@ class Trainer():
 
         self.iter = 0
         self.optimizer = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09,weight_decay=0.001)
-        self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_epochs * len(self.train_gen), **config['optimizer'])
+        self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
         # self.optimizer = ScheduledOptim(
         #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
         #     config['transformer']['d_model'],**config['optimizer'])
@@ -124,59 +115,53 @@ class Trainer():
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
 
     def train(self):
+        total_loss = 0
+        
+        total_loader_time = 0
+        total_gpu_time = 0
         best_acc = 0
 
-        for epoch in range(self.num_epochs):
-            total_loss = 0
-            total_loader_time = 0
-            total_gpu_time = 0
+        data_iter = iter(self.train_gen)
+        for i in range(self.num_iters):
+            self.iter += 1
 
-            print(f"Epoch [{epoch + 1}/{self.num_epochs}]")
+            start = time.time()
 
-            for batch_idx, batch in enumerate(self.train_gen):
-                self.iter += 1
+            try:
+                batch = next(data_iter)
+            except StopIteration:
+                data_iter = iter(self.train_gen)
+                batch = next(data_iter)
 
-                start = time.time()
-                total_loader_time += time.time() - start
+            total_loader_time += time.time() - start
 
-                start = time.time()
-                loss = self.step(batch)
-                total_gpu_time += time.time() - start
-                total_loss += loss
-                self.train_losses.append((self.iter, loss))
+            start = time.time()
+            loss = self.step(batch)
+            total_gpu_time += time.time() - start
+            total_loss += loss
+            self.train_losses.append((self.iter, loss))
 
-                if self.iter % self.print_every == 0:
-                    avg_loss = total_loss / self.print_every
-                    info = (
-                        f"Epoch: {epoch + 1}/{self.num_epochs}, "
-                        f"Iter: {self.iter:06d}, "
-                        f"Train Loss: {avg_loss:.3f}, "
-                        f"LR: {self.optimizer.param_groups[0]['lr']:.2e}, "
-                        f"Load Time: {total_loader_time:.2f}, "
-                        f"GPU Time: {total_gpu_time:.2f}"
-                    )
-                    print(info)
-                    total_loss = 0
-                    total_loader_time = 0
-                    total_gpu_time = 0
+            if self.iter % self.print_every == 0:
+                info = 'iter: {:06d} - train loss: {:.3f} - lr: {:.2e} - load time: {:.2f} - gpu time: {:.2f}'.format(self.iter, 
+                        total_loss/self.print_every, self.optimizer.param_groups[0]['lr'], 
+                        total_loader_time, total_gpu_time)
 
-            # Perform validation at the end of each epoch
-            if self.valid_annotation:
+                total_loss = 0
+                total_loader_time = 0
+                total_gpu_time = 0
+                print(info) 
+
+            if self.valid_annotation and self.iter % self.valid_every == 0:
                 val_loss = self.validate()
                 acc_full_seq, acc_per_char = self.precision(self.metrics)
 
-                info = (
-                    f"Epoch: {epoch + 1}/{self.num_epochs}, "
-                    f"Valid Loss: {val_loss:.3f}, "
-                    f"Acc Full Seq: {acc_full_seq:.4f}, "
-                    f"Acc Per Char: {acc_per_char:.4f}"
-                )
+                info = 'iter: {:06d} - valid loss: {:.3f} - acc full seq: {:.4f} - acc per char: {:.4f}'.format(self.iter, val_loss, acc_full_seq, acc_per_char)
                 print(info)
 
                 if acc_full_seq > best_acc:
                     self.save_weights(self.export_weights)
                     best_acc = acc_full_seq
-
+                    
                 self.early_stopping(val_loss, self.model, self.export_weights)
                 if self.early_stopping.early_stop:
                     print("Early stopping")
@@ -365,7 +350,7 @@ class Trainer():
                 batch_size=self.batch_size, 
                 sampler=sampler,
                 collate_fn = collate_fn,
-                shuffle=True,
+                shuffle=False,
                 drop_last=False,
                 **self.config['dataloader'])
        

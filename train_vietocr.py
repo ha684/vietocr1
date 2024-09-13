@@ -12,12 +12,12 @@ dataset_params = {
 params = {
     'print_every': 1,
     'valid_every': 1000,
-    'epochs': 100,
+    'iters': 100000,
     'checkpoint': './checkpoint/transformers_checkpoint.pth',
     'export': './weights/transformers.pth',
     'metrics': 10000,
     'patience': 5,
-    'batch_size':1
+    'batch_size':32
 }
 config['vocab'] = 'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&''()*+,-./:;<=>?@[\]^_`{|}~’ ' + "'"
 config['trainer'].update(params)
