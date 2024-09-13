@@ -11,7 +11,7 @@ cnn:
     - 2
   - - 2
     - 1
-  pretrained: false
+  pretrained: true
   ss:
   - - 2
     - 2
@@ -32,7 +32,7 @@ dataset:
   valid_annotation: label_test.txt
 device: cuda
 optimizer:
-  max_lr: 0.001
+  max_lr: 0.01
   pct_start: 0.1
 predictor:
   beamsearch: false
@@ -51,7 +51,6 @@ trainer:
 transformer:
   decoder_embedded: 512
   decoder_hidden: 512
-  dropout: 0.1
   encoder_hidden: 512
   img_channel: 512
 vocab: aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&()*+,-./:;<=>?@[\]^_`{|}~’

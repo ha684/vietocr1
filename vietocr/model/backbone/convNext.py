@@ -37,7 +37,6 @@ class ConvNeXtV2(nn.Module):
         super().__init__()
         self.depths = depths
         
-        # Create features similar to PyTorch implementation
         self.features = nn.Sequential()
         stem = nn.Sequential(
             nn.Conv2d(in_chans, dims[0], kernel_size=2, stride=2),
@@ -53,7 +52,7 @@ class ConvNeXtV2(nn.Module):
                 stage.append(Block(dim=dims[i], drop_path=drop_path_rate * stage_block_id / total_stage_blocks))
                 stage_block_id += 1
             self.features.append(stage)
-            if i < 3:  # Add downsampling layer after each stage except the last
+            if i < 3:  
                 downsample = nn.Sequential(
                     LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
                     nn.AvgPool2d(kernel_size=ks[i], stride=ss[i], padding=0),
@@ -98,6 +97,5 @@ if __name__ == "__main__":
     features = model(input_tensor)
     print(features.shape)
     
-    # Verify which parameters are frozen
     for name, param in model.named_parameters():
         print(f"{name}: {param.requires_grad}")

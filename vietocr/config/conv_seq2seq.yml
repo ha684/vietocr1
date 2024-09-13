@@ -20,8 +20,7 @@ transformer:
     decoder_hidden: 512
     img_channel: 512
     decoder_embedded: 512
-    dropout: 0.1
 
 optimizer:
-    max_lr: 0.001
+    max_lr : 0.01
     pct_start: 0.1
