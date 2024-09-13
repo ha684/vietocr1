@@ -167,6 +167,7 @@ class Trainer():
                 if self.early_stopping.early_stop:
                     print("Early stopping")
                     break
+            self.model.update_freeze_state()
 
             
     def validate(self):
