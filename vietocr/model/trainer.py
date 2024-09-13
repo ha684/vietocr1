@@ -291,6 +291,7 @@ class Trainer():
         checkpoint = torch.load(filename)
         # optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
         self.optimizer.load_state_dict(checkpoint['optimizer'])
+        print(checkpoint['state_dict'])
         self.model.load_state_dict(checkpoint['state_dict'])
         self.iter = checkpoint['iter']
         self.train_losses = checkpoint['train_losses']
