@@ -111,10 +111,10 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen('/kaggle/input/folder1/train_ha1'.format(self.dataset_name), 
+        self.train_gen = self.data_gen('train_{}'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         if self.valid_annotation:
-            self.valid_gen = self.data_gen('/kaggle/input/folder1/valid_ha1'.format(self.dataset_name), 
+            self.valid_gen = self.data_gen('valid_{}'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []
@@ -295,7 +295,6 @@ class Trainer():
         checkpoint = torch.load(filename)
         # optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        print(checkpoint['state_dict'])
         self.model.load_state_dict(checkpoint['state_dict'])
         self.iter = checkpoint['iter']
         self.train_losses = checkpoint['train_losses']

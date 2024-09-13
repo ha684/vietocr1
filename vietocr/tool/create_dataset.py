@@ -1,93 +1,86 @@
-import sys
 import os
-import lmdb # install lmdb by "pip install lmdb"
-import cv2
+import lmdb
 import numpy as np
 from tqdm import tqdm
+from multiprocessing import Pool, cpu_count
+import msgpack
+import mmap
+from PIL import Image
+import io
 
-def checkImageIsValid(imageBin):
-    isvalid = True
-    imgH = None
-    imgW = None
-
-    imageBuf = np.fromstring(imageBin, dtype=np.uint8)
+def checkImageIsValid(image_data):
     try:
-        img = cv2.imdecode(imageBuf, cv2.IMREAD_GRAYSCALE)
-
-        imgH, imgW = img.shape[0], img.shape[1]
+        img = Image.open(io.BytesIO(image_data))
+        imgW, imgH = img.size
         if imgH * imgW == 0:
-            isvalid = False
-    except Exception as e:
-        isvalid = False
+            return None
+        return (imgH, imgW)
+    except Exception:
+        return None
 
-    return isvalid, imgH, imgW
-
-def writeCache(env, cache):
-    with env.begin(write=True) as txn:
-        for k, v in cache.items():
-            txn.put(k.encode(), v)
+def processImage(args):
+    i, (imageFile, label), root_dir = args
+    imagePath = os.path.join(root_dir, imageFile)
+    
+    if not os.path.exists(imagePath):
+        return None
+    
+    with open(imagePath, 'rb') as f:
+        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        image_data = mm.read()
+        mm.close()
+    
+    dim = checkImageIsValid(image_data)
+    if dim is None:
+        return None
+    
+    return {
+        'image': ('image-%09d' % i, image_data),
+        'label': ('label-%09d' % i, label),
+        'path': ('path-%09d' % i, imageFile),
+        'dim': ('dim-%09d' % i, dim)
+    }
 
 def createDataset(outputPath, root_dir, annotation_path):
-    """
-    Create LMDB dataset for CRNN training.
-    ARGS:
-        outputPath    : LMDB output path
-        imagePathList : list of image path
-        labelList     : list of corresponding groundtruth texts
-        lexiconList   : (optional) list of lexicon lists
-        checkValid    : if true, check the validity of every image
-    """
-
     annotation_path = os.path.join(root_dir, annotation_path)
     with open(annotation_path, 'r', encoding='utf-8') as ann_file:
-        lines = ann_file.readlines()
-        annotations = [l.strip().split('\t') for l in lines]
+        annotations = [l.strip().split('\t') for l in ann_file]
 
-    nSamples = len(annotations)
-    env = lmdb.open(outputPath, map_size=5 * 1024 * 1024 * 1024)
-    cache = {}
-    cnt = 0
-    error = 0
+    env = lmdb.open(outputPath, map_size=10 * 1024 * 1024 * 1024)  
     
-    pbar = tqdm(range(nSamples), ncols = 100, desc='Create {}'.format(outputPath)) 
-    for i in pbar:
-        imageFile, label = annotations[i]
-        imagePath = os.path.join(root_dir, imageFile)
-
-        if not os.path.exists(imagePath):
-            error += 1
-            continue
+    chunksize = max(1, len(annotations) // (cpu_count() * 4)) 
+    with Pool(processes=cpu_count()) as pool:
+        results = list(tqdm(
+            pool.imap(processImage, [(i, ann, root_dir) for i, ann in enumerate(annotations)], chunksize=chunksize),
+            total=len(annotations),
+            desc='Processing images'
+        ))
+    
+    results = [r for r in results if r is not None]
+    
+    with env.begin(write=True) as txn:
+        for chunk in tqdm(list(chunks(results, 1000)), desc='Writing to LMDB'):
+            with txn.cursor() as curs:
+                for result in chunk:
+                    for k, v in result.items():
+                        curs.put(k[0].encode(), msgpack.packb(v[1], use_bin_type=True))
         
-        with open(imagePath, 'rb') as f:
-            imageBin = f.read()
-        isvalid, imgH, imgW = checkImageIsValid(imageBin)
+        txn.put(b'num-samples', str(len(results)).encode())
+    
+    print(f'Created dataset with {len(results)} samples')
+    print(f'Removed {len(annotations) - len(results)} invalid images')
 
-        if not isvalid:
-            error += 1
-            continue
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
-        imageKey = 'image-%09d' % cnt
-        labelKey = 'label-%09d' % cnt
-        pathKey = 'path-%09d' % cnt
-        dimKey = 'dim-%09d' % cnt
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output_path', help='Path to output LMDB dataset')
+    parser.add_argument('root_dir', help='Root directory of dataset')
+    parser.add_argument('annotation_path', help='Path to annotation file')
+    args = parser.parse_args()
 
-        cache[imageKey] = imageBin
-        cache[labelKey] = label.encode()
-        cache[pathKey] = imageFile.encode()
-        cache[dimKey] = np.array([imgH, imgW], dtype=np.int32).tobytes()
-
-        cnt += 1
-
-        if cnt % 1000 == 0:
-            writeCache(env, cache)
-            cache = {}
-
-    nSamples = cnt-1
-    cache['num-samples'] = str(nSamples).encode()
-    writeCache(env, cache)
-
-    if error > 0:
-        print('Remove {} invalid images'.format(error))
-    print('Created dataset with %d samples' % nSamples)
-    sys.stdout.flush()
-
+    createDataset(args.output_path, args.root_dir, args.annotation_path)
