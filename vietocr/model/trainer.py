@@ -95,6 +95,7 @@ class Trainer():
 
         self.iter = 0
         self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
             betas=(0.9, 0.98), 
             eps=1e-09,
             weight_decay=0.001
