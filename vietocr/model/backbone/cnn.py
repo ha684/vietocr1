@@ -18,8 +18,8 @@ class CNN(nn.Module):
             raise ValueError(f"Unsupported backbone: {backbone}")
         
         self.total_layers = len(list(self.model.features.parameters()))
-        self.frozen_layers = self.total_layers - 3
-        self.total_epochs = 1000000
+        self.frozen_layers = self.total_layers - 4
+        self.total_epochs = 20000
         self.current_epoch = 0
         self.unfreeze_schedule = self._calculate_unfreeze_schedule()
         
@@ -56,6 +56,7 @@ class CNN(nn.Module):
                 print(f"Epoch {self.current_epoch}: Unfrozen to {self.total_layers - target_frozen} layers. {target_frozen} layers still frozen.")
                 self.report_layers() 
         elif self.frozen_layers > 0:
+            print('unfreeze')
             self.unfreeze()
         self.current_epoch += 1
 

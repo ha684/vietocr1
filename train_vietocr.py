@@ -1,7 +1,7 @@
 from vietocr.model.trainer import Trainer
 from vietocr.tool.config import Cfg
 import os
-config = Cfg.load_config_from_file(r'D:\Workspace\python_code\vietocr1\vietocr\config\conv_seq2seq.yml')
+config = Cfg.load_config_from_file(r'D:\Workspace\python_code\vietocr1\vietocr\config\vgg-seq2seq.yml')
 dataset_params = {
     'name': 'ha1',
     'data_root': r'D:\Workspace\python_code\ImageGenerations\images_out',
@@ -17,7 +17,7 @@ params = {
     'export': './weights/transformers.pth',
     'metrics': 10000,
     'patience': 5,
-    'batch_size':32
+    'batch_size':1
 }
 config['vocab'] = 'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&''()*+,-./:;<=>?@[\]^_`{|}~’ ' + "'"
 config['trainer'].update(params)

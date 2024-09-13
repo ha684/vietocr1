@@ -1,7 +1,7 @@
 aug:
   image_aug: true
   masked_language_model: true
-backbone: convNext
+backbone: vgg19_bn
 cnn:
   hidden: 512
   ks:
@@ -11,13 +11,20 @@ cnn:
     - 2
   - - 2
     - 1
-  pretrained: true
+  - - 2
+    - 1
+  - - 1
+    - 1
   ss:
   - - 2
     - 2
   - - 2
     - 2
   - - 2
+    - 1
+  - - 2
+    - 1
+  - - 1
     - 1
 dataloader:
   num_workers: 0
@@ -32,10 +39,11 @@ dataset:
   valid_annotation: label_test.txt
 device: cuda
 optimizer:
-  max_lr: 0.01
+  max_lr: 0.001
   pct_start: 0.1
 predictor:
   beamsearch: false
+pretrain: https://vocr.vn/data/vietocr/vgg_seq2seq.pth
 quiet: false
 seq_modeling: seq2seq
 trainer:
@@ -51,7 +59,9 @@ trainer:
 transformer:
   decoder_embedded: 512
   decoder_hidden: 512
+  dropout: 0.1
   encoder_hidden: 512
   img_channel: 512
 vocab: aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&()*+,-./:;<=>?@[\]^_`{|}~’
   '
+weights: https://vocr.vn/data/vietocr/vgg_seq2seq.pth
