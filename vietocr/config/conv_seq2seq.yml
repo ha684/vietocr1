@@ -1,12 +1,10 @@
 backbone: convNext
 cnn:
-    # pooling stride size
     ss:
         - [2, 2]
         - [2, 2]
         - [2, 1]
          
-    # pooling kernel size 
     ks:
         - [2, 2]
         - [2, 2]
