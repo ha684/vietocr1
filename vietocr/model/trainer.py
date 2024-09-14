@@ -7,7 +7,7 @@ from vietocr.tool.translate import translate, batch_translate_beam_search
 from vietocr.tool.utils import download_weights
 from vietocr.tool.logger import Logger
 from vietocr.loader.aug import ImgAugTransform, ImgAugTransformV2
-
+import json
 import yaml
 import torch
 from vietocr.loader.dataloader_v1 import DataGen
@@ -15,7 +15,7 @@ from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
 from torch.utils.data import DataLoader
 from einops import rearrange
 from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
-
+import mmap
 import torchvision 
 
 from vietocr.tool.utils import compute_accuracy
@@ -73,7 +73,7 @@ class Trainer():
         self.train_annotation = config['dataset']['train_annotation']
         self.valid_annotation = config['dataset']['valid_annotation']
         self.dataset_name = config['dataset']['name']
-
+        self.num_epochs = config['trainer']['epochs']
         self.batch_size = config['trainer']['batch_size']
         self.print_every = config['trainer']['print_every']
         self.valid_every = config['trainer']['valid_every']
@@ -100,7 +100,10 @@ class Trainer():
             eps=1e-09,
             weight_decay=0.001
         )
-        self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
+        self.train_dataset_size = self._get_dataset_size(self.train_annotation)
+        self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
+        total_steps = self.num_epochs * self.iterations_per_epoch
+        self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])
         # self.optimizer = ScheduledOptim(
         #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
         #     config['transformer']['d_model'],**config['optimizer'])
@@ -119,7 +122,15 @@ class Trainer():
 
         self.train_losses = []
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
-
+        
+    def _get_dataset_size(self, annotation_path):
+        line_count = 0
+        with open(annotation_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                while mm.readline():
+                    line_count += 1
+        return line_count
+        
     def train(self):
         total_loss = 0
         
@@ -127,52 +138,83 @@ class Trainer():
         total_gpu_time = 0
         best_acc = 0
 
-        data_iter = iter(self.train_gen)
-        for i in range(self.num_iters):
-            self.iter += 1
+        for epoch in range(1, self.num_epochs + 1):
+            self.model.train()
+            epoch_start_time = time.time()
+            data_iter = iter(self.train_gen)
+            for i in range(1, self.iterations_per_epoch + 1):
+                self.iter = (epoch - 1) * self.iterations_per_epoch + i
 
-            start = time.time()
+                loader_start = time.time()
+                try:
+                    batch = next(data_iter)
+                except StopIteration:
+                    data_iter = iter(self.train_gen)
+                    batch = next(data_iter)
+                total_loader_time += time.time() - loader_start
 
-            try:
-                batch = next(data_iter)
-            except StopIteration:
-                data_iter = iter(self.train_gen)
-                batch = next(data_iter)
+                gpu_start = time.time()
+                loss = self.step(batch)
+                total_gpu_time += time.time() - gpu_start
+                total_loss += loss
+                self.train_losses.append((self.iter, loss))
 
-            total_loader_time += time.time() - start
+                self.scheduler.step()
 
-            start = time.time()
-            loss = self.step(batch)
-            total_gpu_time += time.time() - start
-            total_loss += loss
-            self.train_losses.append((self.iter, loss))
+                if self.iter % self.print_every == 0:
+                    avg_loss = total_loss / self.print_every
+                    current_lr = self.optimizer.param_groups[0]['lr']
+                    info = (
+                        f"Epoch: {epoch}/{self.num_epochs} | "
+                        f"Iter: {self.iter} | "
+                        f"Train Loss: {avg_loss:.4f} | "
+                        f"LR: {current_lr:.2e} | "
+                        f"Load Time: {total_loader_time:.2f}s | "
+                        f"GPU Time: {total_gpu_time:.2f}s"
+                    )
+                    print(info)
+                    if hasattr(self, 'logger'):
+                        self.logger.log(info)
+                    total_loss = 0
+                    total_loader_time = 0
+                    total_gpu_time = 0
 
-            if self.iter % self.print_every == 0:
-                info = 'iter: {:06d} - train loss: {:.3f} - lr: {:.2e} - load time: {:.2f} - gpu time: {:.2f}'.format(self.iter, 
-                        total_loss/self.print_every, self.optimizer.param_groups[0]['lr'], 
-                        total_loader_time, total_gpu_time)
+                if self.valid_annotation and self.iter % self.valid_every == 0:
+                    val_loss = self.validate()
+                    acc_full_seq, acc_per_char = self.precision(self.metrics)
 
-                total_loss = 0
-                total_loader_time = 0
-                total_gpu_time = 0
-                print(info) 
+                    info = (
+                        f"Epoch: {epoch}/{self.num_epochs} | "
+                        f"Iter: {self.iter} | "
+                        f"Valid Loss: {val_loss:.4f} | "
+                        f"Acc Full Seq: {acc_full_seq:.4f} | "
+                        f"Acc Per Char: {acc_per_char:.4f}"
+                    )
+                    print(info)
+                    if hasattr(self, 'logger'):
+                        self.logger.log(info)
 
-            if self.valid_annotation and self.iter % self.valid_every == 0:
-                val_loss = self.validate()
-                acc_full_seq, acc_per_char = self.precision(self.metrics)
-
-                info = 'iter: {:06d} - valid loss: {:.3f} - acc full seq: {:.4f} - acc per char: {:.4f}'.format(self.iter, val_loss, acc_full_seq, acc_per_char)
-                print(info)
-
-                if acc_full_seq > best_acc:
-                    self.save_weights(self.export_weights)
-                    best_acc = acc_full_seq
-                    
-                self.early_stopping(val_loss, self.model, self.export_weights)
-                if self.early_stopping.early_stop:
-                    print("Early stopping")
-                    break
-            self.cnn.update_freeze_state()
+                    if acc_full_seq > best_acc:
+                        self.save_weights(self.export_weights)
+                        best_acc = acc_full_seq
+                        info = f"New best accuracy: {best_acc:.4f}. Weights saved."
+                        print(info)
+                        if hasattr(self, 'logger'):
+                            self.logger.log(info)
+                        
+                    self.early_stopping(val_loss, self.model, self.export_weights)
+                    if self.early_stopping.early_stop:
+                        print("Early stopping triggered.")
+                        if hasattr(self, 'logger'):
+                            self.logger.log("Early stopping triggered.")
+                        return
+                self.cnn.update_freeze_state()
+            
+            epoch_duration = time.time() - epoch_start_time
+            info = f"Epoch {epoch} completed in {epoch_duration:.2f}s."
+            print(info)
+            if hasattr(self, 'logger'):
+                self.logger.log(info)
 
             
     def validate(self):
@@ -372,7 +414,6 @@ class Trainer():
         return data_gen
     
     def steps(self, batch,prev_k_list,prev_v_list):
-        self.model.train()
 
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
@@ -404,7 +445,7 @@ class Trainer():
         
         outputs = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask)
 #        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-        outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
+        outputs = outputs.view(-1, outputs.size(-1))#flatten(0, 1)
         tgt_output = tgt_output.view(-1)#flatten()
         
         loss = self.criterion(outputs, tgt_output)
@@ -416,7 +457,6 @@ class Trainer():
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
 
         self.optimizer.step()
-        self.scheduler.step()
 
         loss_item = loss.item()
 

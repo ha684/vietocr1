@@ -13,6 +13,7 @@ params = {
     'print_every': 1,
     'valid_every': 1000,
     'iters': 100000,
+    'epochs': 10,
     'checkpoint': './checkpoint/transformers_checkpoint.pth',
     'export': './weights/transformers.pth',
     'metrics': 10000,
