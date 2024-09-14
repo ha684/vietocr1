@@ -85,21 +85,16 @@ class Trainer():
         self.export_weights = config['trainer']['export']
         self.metrics = config['trainer']['metrics']
         logger = config['trainer']['log']
-    
+        self.cnn = CNN(config['backbone'],**config['cnn'])
         if logger:
             self.logger = Logger(logger)    
-            
+        
         if pretrained:
             weight_file = download_weights(config['pretrain'], quiet=config['quiet'])
             self.load_weights(weight_file)
 
         self.iter = 0
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            betas=(0.9, 0.98), 
-            eps=1e-09,
-            weight_decay=0.001
-        )
+        self.optimizer = self.cnn.get_optimizer()
         self.scheduler = OneCycleLR(self.optimizer, total_steps=self.num_iters, **config['optimizer'])
         # self.optimizer = ScheduledOptim(
         #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
@@ -172,6 +167,7 @@ class Trainer():
                 if self.early_stopping.early_stop:
                     print("Early stopping")
                     break
+            self.cnn.update_freeze_state()
 
             
     def validate(self):
