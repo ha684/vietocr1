@@ -26,7 +26,7 @@ class CNN(nn.Module):
         self.freeze()  
         
     def _calculate_unfreeze_schedule(self):
-        speed = 2.0  
+        speed = 3.0  
         return [
             int(self.total_layers * (1 - math.exp(-speed * (i / self.total_epochs) ** 2)))
             for i in range(self.total_epochs)
