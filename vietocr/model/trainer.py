@@ -125,15 +125,13 @@ class Trainer():
         
     def _get_dataset_size(self, annotation_path):
         line_count = 0
-        with open(annotation_path, 'r', encoding='utf-8', errors='ignore') as f:
-            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-                while mm.readline():
-                    line_count += 1
+        with open(annotation_path, 'rb') as f:  
+            for chunk in iter(lambda: f.read(1024 * 1024), b''):
+                line_count += chunk.count(b'\n') 
         return line_count
         
     def train(self):
         total_loss = 0
-        
         total_loader_time = 0
         total_gpu_time = 0
         best_acc = 0
@@ -144,7 +142,6 @@ class Trainer():
             data_iter = iter(self.train_gen)
             for i in range(1, self.iterations_per_epoch + 1):
                 self.iter = (epoch - 1) * self.iterations_per_epoch + i
-
                 loader_start = time.time()
                 try:
                     batch = next(data_iter)
@@ -152,15 +149,12 @@ class Trainer():
                     data_iter = iter(self.train_gen)
                     batch = next(data_iter)
                 total_loader_time += time.time() - loader_start
-
                 gpu_start = time.time()
                 loss = self.step(batch)
                 total_gpu_time += time.time() - gpu_start
                 total_loss += loss
                 self.train_losses.append((self.iter, loss))
-
                 self.scheduler.step()
-
                 if self.iter % self.print_every == 0:
                     avg_loss = total_loss / self.print_every
                     current_lr = self.optimizer.param_groups[0]['lr']
