@@ -99,7 +99,8 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        
+        self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
+                self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
         base_optimizer = AdamW(
             self.model.parameters(),
@@ -120,8 +121,6 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
-                self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         if self.valid_annotation:
             self.valid_gen = self.data_gen('/kaggle/input/folder2/valid_ha1'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
