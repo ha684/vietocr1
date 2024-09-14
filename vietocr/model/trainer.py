@@ -97,7 +97,10 @@ class Trainer():
         if pretrained:
             weight_file = download_weights(config['pretrain'], quiet=config['quiet'])
             self.load_weights(weight_file)
-
+        transforms = None
+        if self.image_aug:
+            transforms =  augmentor
+            
         self.iter = 0
         self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
@@ -117,9 +120,7 @@ class Trainer():
         
         
         
-        transforms = None
-        if self.image_aug:
-            transforms =  augmentor
+        
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen('/kaggle/input/folder2/valid_ha1'.format(self.dataset_name), 
