@@ -122,7 +122,7 @@ def build_model(config):
             config['cnn'], 
             config['transformer'],
             config['seq_modeling'])
-
+    model = torch.nn.DataParallel(model)
     return model, vocab
 
 def resize(w, h, expected_height, image_min_width, image_max_width):
