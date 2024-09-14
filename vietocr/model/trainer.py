@@ -99,6 +99,8 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
+        self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])
+        self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
         base_optimizer = AdamW(
             self.model.parameters(),
             lr= self.find_optimal_lr(),
@@ -110,8 +112,8 @@ class Trainer():
         self.train_dataset_size = self._get_dataset_size(self.train_annotation)
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
         total_steps = self.num_epochs * self.iterations_per_epoch
-        self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])
-        self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
+        
+        
         
         transforms = None
         if self.image_aug:
