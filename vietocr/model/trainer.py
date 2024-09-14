@@ -11,6 +11,7 @@ import json
 import yaml
 import torch
 from vietocr.loader.dataloader_v1 import DataGen
+from torch.amp import GradScaler, autocast
 from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
 from torch.utils.data import DataLoader
 from einops import rearrange
@@ -80,7 +81,7 @@ class Trainer():
         
         self.image_aug = config['aug']['image_aug']
         self.masked_language_model = config['aug']['masked_language_model']
-
+        self.scaler = GradScaler()
         self.checkpoint = config['trainer']['checkpoint']
         self.export_weights = config['trainer']['export']
         self.metrics = config['trainer']['metrics']
@@ -104,10 +105,6 @@ class Trainer():
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
         total_steps = self.num_epochs * self.iterations_per_epoch
         self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])
-        # self.optimizer = ScheduledOptim(
-        #     Adam(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09),
-        #     config['transformer']['d_model'],**config['optimizer'])
-
         self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
         
         transforms = None
@@ -210,24 +207,27 @@ class Trainer():
             if hasattr(self, 'logger'):
                 self.logger.log(info)
 
-            
+                
     def validate(self):
         self.model.eval()
-
         total_loss = []
         
         with torch.no_grad():
             for step, batch in enumerate(self.valid_gen):
                 batch = self.batch_to_device(batch)
-                img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']
-
-                outputs = self.model(img, tgt_input, tgt_padding_mask)
-#                loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-               
-                outputs = outputs.flatten(0,1)
-                tgt_output = tgt_output.flatten()
-                loss = self.criterion(outputs, tgt_output)
-
+                img, tgt_input, tgt_output, tgt_padding_mask = (
+                    batch['img'],
+                    batch['tgt_input'],
+                    batch['tgt_output'],
+                    batch['tgt_padding_mask']
+                )
+                
+                with autocast():  
+                    outputs = self.model(img, tgt_input, tgt_padding_mask)
+                    outputs = outputs.flatten(0,1)
+                    tgt_output = tgt_output.flatten()
+                    loss = self.criterion(outputs, tgt_output)
+                
                 total_loss.append(loss.item())
                 
                 del outputs
@@ -237,6 +237,7 @@ class Trainer():
         self.model.train()
         
         return total_loss
+
     
     def predict(self, sample=None):
         pred_sents = []
@@ -407,51 +408,21 @@ class Trainer():
 
         return data_gen
     
-    def steps(self, batch,prev_k_list,prev_v_list):
-
-        batch = self.batch_to_device(batch)
-        img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
-        
-        outputs,new_k_list,new_v_list = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask,k_list=prev_k_list,v_list = prev_v_list)
-#        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-        outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
-        tgt_output = tgt_output.view(-1)#flatten()
-        
-        loss = self.criterion(outputs, tgt_output)
-        self.optimizer.zero_grad()
-
-        loss.backward()
-        
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
-
-        self.optimizer.step()
-        self.scheduler.step()
-
-        loss_item = loss.item()
-
-        return loss_item,new_k_list,new_v_list
-    
     def step(self, batch):
         self.model.train()
-
+        self.optimizer.zero_grad()
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
+        with autocast(): 
+            outputs = self.model(img, tgt_input, tgt_padding_mask)
+            outputs = outputs.flatten(0,1)
+            tgt_output = tgt_output.flatten()
+            loss = self.criterion(outputs, tgt_output)
         
-        outputs = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask)
-#        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-        outputs = outputs.view(-1, outputs.size(-1))#flatten(0, 1)
-        tgt_output = tgt_output.view(-1)#flatten()
+        self.scaler.scale(loss).backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        self.scaler.step(self.optimizer)
         
-        loss = self.criterion(outputs, tgt_output)
-
-        self.optimizer.zero_grad()
-
-        loss.backward()
+        self.scaler.update()
         
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
-
-        self.optimizer.step()
-
-        loss_item = loss.item()
-
-        return loss_item
+        return loss.item()
