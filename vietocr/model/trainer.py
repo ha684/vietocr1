@@ -226,7 +226,7 @@ class Trainer():
                 batch = self.batch_to_device(batch)
                 img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']
 
-                with autocast(device_type='cuda', dtype=torch.float16):
+                with autocast(device_type='cuda', dtype=torch.bfloat16):
                     outputs = self.model(img, tgt_input, tgt_padding_mask)
                     outputs = outputs.flatten(0, 1)
                     tgt_output = tgt_output.flatten()
@@ -448,7 +448,7 @@ class Trainer():
         )
 
         # Use autocast with device_type='cuda'
-        with autocast(device_type='cuda', dtype=torch.float16):
+        with autocast(device_type='cuda', dtype=torch.bfloat16):
             outputs = self.model(img, tgt_input, tgt_padding_mask)
             outputs = outputs.flatten(0, 1)
             tgt_output = tgt_output.flatten()
