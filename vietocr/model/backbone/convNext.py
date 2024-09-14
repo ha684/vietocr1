@@ -88,6 +88,7 @@ def convnextv2_base(pretrained=True, **kwargs):
         temp_model = timm.create_model('convnextv2_pico', pretrained=True)
         state_dict = temp_model.state_dict()
         model.load_state_dict(state_dict, strict=False)
+        model.to('cuda')
     return model
 
 if __name__ == "__main__":
