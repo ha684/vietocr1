@@ -103,15 +103,14 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
+        self.train_gen = self.data_gen('train_ha1'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
-        base_optimizer = AdamW(
+        self.optimizer = AdamW(
             self.model.parameters(),
             betas=(0.9, 0.98), 
             eps=1e-09,
             weight_decay=0.001
         )
-        self.optimizer = lookahead(base_optimizer, k=5, alpha=0.5)
         self.train_dataset_size = self._get_dataset_size(self.train_annotation)
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
         total_steps = self.num_epochs * self.iterations_per_epoch
@@ -119,7 +118,7 @@ class Trainer():
 
         
         if self.valid_annotation:
-            self.valid_gen = self.data_gen('/kaggle/input/folder2/valid_ha1'.format(self.dataset_name), 
+            self.valid_gen = self.data_gen('valid_ha1'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []
