@@ -16,8 +16,11 @@ from torch.utils.data import DataLoader
 from einops import rearrange
 from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
 import mmap
-import torchvision 
+from torch_lr_finder import LRFinder
 
+import torchvision 
+from torch.amp import autocast,GradScaler
+from lookahead import lookahead
 from vietocr.tool.utils import compute_accuracy
 from PIL import Image
 import numpy as np
@@ -77,7 +80,7 @@ class Trainer():
         self.batch_size = config['trainer']['batch_size']
         self.print_every = config['trainer']['print_every']
         self.valid_every = config['trainer']['valid_every']
-        
+        self.scaler = GradScaler()
         self.image_aug = config['aug']['image_aug']
         self.masked_language_model = config['aug']['masked_language_model']
 
@@ -94,16 +97,6 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        self.optimizer = AdamW(
-            self.model.parameters(),
-            betas=(0.9, 0.98), 
-            eps=1e-09,
-            weight_decay=0.001
-        )
-        self.train_dataset_size = self._get_dataset_size(self.train_annotation)
-        self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
-        total_steps = self.num_epochs * self.iterations_per_epoch
-        self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])
         self.criterion = LabelSmoothingLoss(len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1)
         
         transforms = None
@@ -112,6 +105,20 @@ class Trainer():
 
         self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
+        base_optimizer = AdamW(
+            self.model.parameters(),
+            lr=self.find_optimal_lr(),
+            betas=(0.9, 0.98), 
+            eps=1e-09,
+            weight_decay=0.001
+        )
+        self.optimizer = lookahead(base_optimizer, k=5, alpha=0.5)
+        self.train_dataset_size = self._get_dataset_size(self.train_annotation)
+        self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
+        total_steps = self.num_epochs * self.iterations_per_epoch
+        self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])
+
+        
         if self.valid_annotation:
             self.valid_gen = self.data_gen('/kaggle/input/folder2/valid_ha1'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
@@ -119,15 +126,25 @@ class Trainer():
         self.train_losses = []
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
         
+    def find_optimal_lr(self):
+        optimizer = AdamW(self.model.parameters(), lr=1e-7)
+        criterion = self.criterion
+        lr_finder = LRFinder(self.model, optimizer, criterion, device=self.device)
+        lr_finder.range_test(self.train_gen, end_lr=10, num_iter=100)
+        lr_finder.plot()  # to inspect the loss-learning rate graph
+        lr_finder.reset()
+        
     def _get_dataset_size(self, annotation_path):
         line_count = 0
-        with open(annotation_path, 'rb') as f:  
-            for chunk in iter(lambda: f.read(1024 * 1024), b''):
-                line_count += chunk.count(b'\n') 
+        with open(annotation_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                while mm.readline():
+                    line_count += 1
         return line_count
         
     def train(self):
         total_loss = 0
+        
         total_loader_time = 0
         total_gpu_time = 0
         best_acc = 0
@@ -138,6 +155,7 @@ class Trainer():
             data_iter = iter(self.train_gen)
             for i in range(1, self.iterations_per_epoch + 1):
                 self.iter = (epoch - 1) * self.iterations_per_epoch + i
+
                 loader_start = time.time()
                 try:
                     batch = next(data_iter)
@@ -145,12 +163,15 @@ class Trainer():
                     data_iter = iter(self.train_gen)
                     batch = next(data_iter)
                 total_loader_time += time.time() - loader_start
+
                 gpu_start = time.time()
                 loss = self.step(batch)
                 total_gpu_time += time.time() - gpu_start
                 total_loss += loss
                 self.train_losses.append((self.iter, loss))
+
                 self.scheduler.step()
+
                 if self.iter % self.print_every == 0:
                     avg_loss = total_loss / self.print_every
                     current_lr = self.optimizer.param_groups[0]['lr']
@@ -217,12 +238,11 @@ class Trainer():
                 batch = self.batch_to_device(batch)
                 img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']
 
-                outputs = self.model(img, tgt_input, tgt_padding_mask)
-#                loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-               
-                outputs = outputs.flatten(0,1)
-                tgt_output = tgt_output.flatten()
-                loss = self.criterion(outputs, tgt_output)
+                with autocast(device_type='cuda', dtype=torch.float16):
+                    outputs = self.model(img, tgt_input, tgt_padding_mask)
+                    outputs = outputs.flatten(0, 1)
+                    tgt_output = tgt_output.flatten()
+                    loss = self.criterion(outputs, tgt_output)
 
                 total_loss.append(loss.item())
                 
@@ -402,21 +422,18 @@ class Trainer():
                 image_max_width = self.config['dataset']['image_max_width'])
 
         return data_gen
-
     
-    def step(self, batch):
-        self.model.train()
+    def steps(self, batch,prev_k_list,prev_v_list):
 
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
         
-        outputs = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask)
+        outputs,new_k_list,new_v_list = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask,k_list=prev_k_list,v_list = prev_v_list)
 #        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-        outputs = outputs.view(-1, outputs.size(-1))#flatten(0, 1)
+        outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
         tgt_output = tgt_output.view(-1)#flatten()
         
         loss = self.criterion(outputs, tgt_output)
-
         self.optimizer.zero_grad()
 
         loss.backward()
@@ -424,7 +441,35 @@ class Trainer():
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
 
         self.optimizer.step()
+        self.scheduler.step()
 
         loss_item = loss.item()
 
-        return loss_item
+        return loss_item,new_k_list,new_v_list
+    
+    def step(self, batch):
+        self.optimizer.zero_grad()
+
+        # Move batch to device
+        batch = self.batch_to_device(batch)
+        img, tgt_input, tgt_output, tgt_padding_mask = (
+            batch['img'],
+            batch['tgt_input'],
+            batch['tgt_output'],
+            batch['tgt_padding_mask']
+        )
+
+        # Use autocast with device_type='cuda'
+        with autocast(device_type='cuda', dtype=torch.float16):
+            outputs = self.model(img, tgt_input, tgt_padding_mask)
+            outputs = outputs.flatten(0, 1)
+            tgt_output = tgt_output.flatten()
+            loss = self.criterion(outputs, tgt_output)
+
+        self.scaler.scale(loss).backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+
+        return loss.item()
+
