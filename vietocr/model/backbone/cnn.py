@@ -34,7 +34,7 @@ class CNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         model = self.model.to(self.device)
-        return model
+        return model(x)
 
     def freeze(self):
         for i, param in enumerate(self.model.features.parameters()):
