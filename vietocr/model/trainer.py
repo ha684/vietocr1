@@ -16,11 +16,9 @@ from torch.utils.data import DataLoader
 from einops import rearrange
 from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
 import mmap
-from torch_lr_finder import LRFinder
 
 import torchvision 
 from torch.amp import autocast,GradScaler
-from lookahead import lookahead
 from vietocr.tool.utils import compute_accuracy
 from PIL import Image
 import numpy as np
@@ -103,7 +101,7 @@ class Trainer():
         if self.image_aug:
             transforms =  augmentor
 
-        self.train_gen = self.data_gen('train_ha1'.format(self.dataset_name), 
+        self.train_gen = self.data_gen('/kaggle/input/folder2/train_ha1'.format(self.dataset_name), 
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         self.optimizer = AdamW(
             self.model.parameters(),
@@ -118,7 +116,7 @@ class Trainer():
 
         
         if self.valid_annotation:
-            self.valid_gen = self.data_gen('valid_ha1'.format(self.dataset_name), 
+            self.valid_gen = self.data_gen('/kaggle/input/folder2/valid_ha1'.format(self.dataset_name), 
                     self.data_root, self.valid_annotation, masked_language_model=False)
 
         self.train_losses = []
