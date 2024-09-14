@@ -132,7 +132,6 @@ class Trainer():
         
     def train(self):
         total_loss = 0
-        
         total_loader_time = 0
         total_gpu_time = 0
         best_acc = 0
@@ -157,8 +156,6 @@ class Trainer():
                 total_gpu_time += time.time() - gpu_start
                 total_loss += loss
                 self.train_losses.append((self.iter, loss))
-
-                self.scheduler.step()
 
                 if self.iter % self.print_every == 0:
                     avg_loss = total_loss / self.print_every
@@ -436,9 +433,6 @@ class Trainer():
         return loss_item,new_k_list,new_v_list
     
     def step(self, batch):
-        self.optimizer.zero_grad()
-
-        # Move batch to device
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = (
             batch['img'],
@@ -447,17 +441,17 @@ class Trainer():
             batch['tgt_padding_mask']
         )
 
-        # Use autocast with device_type='cuda'
         with autocast(device_type='cuda', dtype=torch.bfloat16):
             outputs = self.model(img, tgt_input, tgt_padding_mask)
             outputs = outputs.flatten(0, 1)
             tgt_output = tgt_output.flatten()
             loss = self.criterion(outputs, tgt_output)
-
         self.scaler.scale(loss).backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
         self.scaler.step(self.optimizer)
         self.scaler.update()
+        self.scheduler.step()
+        self.optimizer.zero_grad(set_to_none=True)
 
         return loss.item()
 
