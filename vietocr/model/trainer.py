@@ -107,7 +107,6 @@ class Trainer():
                 self.data_root, self.train_annotation, self.masked_language_model, transform=transforms)
         base_optimizer = AdamW(
             self.model.parameters(),
-            lr=self.find_optimal_lr(),
             betas=(0.9, 0.98), 
             eps=1e-09,
             weight_decay=0.001
@@ -125,14 +124,6 @@ class Trainer():
 
         self.train_losses = []
         self.early_stopping = EarlyStopping(patience=config['trainer'].get('patience', 10), verbose=True)
-        
-    def find_optimal_lr(self):
-        optimizer = AdamW(self.model.parameters(), lr=1e-7)
-        criterion = self.criterion
-        lr_finder = LRFinder(self.model, optimizer, criterion, device=self.device)
-        lr_finder.range_test(self.train_gen, end_lr=10, num_iter=100)
-        lr_finder.plot()  # to inspect the loss-learning rate graph
-        lr_finder.reset()
         
     def _get_dataset_size(self, annotation_path):
         line_count = 0
