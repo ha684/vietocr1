@@ -137,7 +137,6 @@ class Trainer():
         best_acc = 0
 
         for epoch in range(1, self.num_epochs + 1):
-            self.model.train()
             epoch_start_time = time.time()
             data_iter = iter(self.train_gen)
             for i in range(1, self.iterations_per_epoch + 1):
@@ -407,31 +406,8 @@ class Trainer():
 
         return data_gen
     
-    def steps(self, batch,prev_k_list,prev_v_list):
-
-        batch = self.batch_to_device(batch)
-        img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
-        
-        outputs,new_k_list,new_v_list = self.model(img, tgt_input, tgt_key_padding_mask=tgt_padding_mask,k_list=prev_k_list,v_list = prev_v_list)
-#        loss = self.criterion(rearrange(outputs, 'b t v -> (b t) v'), rearrange(tgt_output, 'b o -> (b o)'))
-        outputs = outputs.view(-1, outputs.size(2))#flatten(0, 1)
-        tgt_output = tgt_output.view(-1)#flatten()
-        
-        loss = self.criterion(outputs, tgt_output)
-        self.optimizer.zero_grad()
-
-        loss.backward()
-        
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1) 
-
-        self.optimizer.step()
-        self.scheduler.step()
-
-        loss_item = loss.item()
-
-        return loss_item,new_k_list,new_v_list
-    
     def step(self, batch):
+        self.model.train()
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = (
             batch['img'],
