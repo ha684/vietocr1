@@ -235,7 +235,6 @@ class Trainer():
                 del loss
 
         total_loss = np.mean(total_loss)
-        self.model.train()
         
         return total_loss
     

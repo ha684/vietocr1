@@ -9,7 +9,7 @@ cnn:
         - [2, 2]
         - [2, 2]
         - [2, 1]
-
+    drop_path_rate : 0.1
     pretrained: True
     hidden: 512
 seq_modeling: seq2seq
@@ -18,7 +18,7 @@ transformer:
     decoder_hidden: 512
     img_channel: 512
     decoder_embedded: 512
-    dropout : 0.0
+    dropout : 0.1
 
 optimizer:
     max_lr : 0.001
