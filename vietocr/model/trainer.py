@@ -10,6 +10,7 @@ from vietocr.loader.aug import ImgAugTransform, ImgAugTransformV2
 import json
 import yaml
 import torch
+from lookahead import lookahead
 from vietocr.loader.dataloader_v1 import DataGen
 from torch.amp import GradScaler, autocast
 from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
@@ -18,7 +19,7 @@ from einops import rearrange
 from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
 import mmap
 import torchvision 
-
+from torch_lr_finder import LRFinder
 from vietocr.tool.utils import compute_accuracy
 from PIL import Image
 import numpy as np
@@ -67,6 +68,9 @@ class Trainer():
         self.model, self.vocab = build_model(config)
         
         self.device = config['device']
+        self.model.to(self.device)
+        self.model = torch.nn.DataParallel(self.model, device_ids=[0, 1]) 
+        self.device = 'cuda'
         self.num_iters = config['trainer']['iters']
         self.beamsearch = config['predictor']['beamsearch']
 
@@ -95,12 +99,14 @@ class Trainer():
             self.load_weights(weight_file)
 
         self.iter = 0
-        self.optimizer = AdamW(
+        base_optimizer = AdamW(
             self.model.parameters(),
+            lr= self.find_optimal_lr(),
             betas=(0.9, 0.98), 
             eps=1e-09,
-            weight_decay=0.001
+            weight_decay=0.001,
         )
+        self.optimizer = lookahead(base_optimizer, k=5, alpha=0.5)
         self.train_dataset_size = self._get_dataset_size(self.train_annotation)
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
         total_steps = self.num_epochs * self.iterations_per_epoch
@@ -126,6 +132,14 @@ class Trainer():
             for chunk in iter(lambda: f.read(1024 * 1024), b''):
                 line_count += chunk.count(b'\n') 
         return line_count
+    
+    def find_optimal_lr(self):
+        optimizer = AdamW(self.model.parameters(), lr=1e-7)
+        criterion = self.criterion
+        lr_finder = LRFinder(self.model, optimizer, criterion, device=self.device)
+        lr_finder.range_test(self.train_gen, end_lr=10, num_iter=100)
+        lr_finder.plot()  
+        lr_finder.reset()
         
     def train(self):
         total_loss = 0
@@ -221,15 +235,7 @@ class Trainer():
                     batch['tgt_output'],
                     batch['tgt_padding_mask']
                 )
-                
-                if self.device.startswith('cuda'):
-                    device_type = 'cuda'
-                elif self.device.startswith('cpu'):
-                    device_type = 'cpu'
-                else:
-                    raise ValueError(f"Unsupported device type: {self.device}")
-
-                with autocast(device_type=device_type, dtype=torch.float16 if device_type == 'cuda' else torch.bfloat16):
+                with autocast(device_type='cuda', dtype=torch.float16):
                     outputs = self.model(img, tgt_input, tgt_padding_mask)
                     outputs = outputs.flatten(0,1)
                     tgt_output = tgt_output.flatten()
@@ -338,7 +344,6 @@ class Trainer():
 
     def load_checkpoint(self, filename):
         checkpoint = torch.load(filename)
-        # optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.model.load_state_dict(checkpoint['state_dict'])
         self.iter = checkpoint['iter']
@@ -420,14 +425,8 @@ class Trainer():
         self.optimizer.zero_grad()
         batch = self.batch_to_device(batch)
         img, tgt_input, tgt_output, tgt_padding_mask = batch['img'], batch['tgt_input'], batch['tgt_output'], batch['tgt_padding_mask']    
-        if self.device.startswith('cuda'):
-            device_type = 'cuda'
-        elif self.device.startswith('cpu'):
-            device_type = 'cpu'
-        else:
-            raise ValueError(f"Unsupported device type: {self.device}")
 
-        with autocast(device_type=device_type, dtype=torch.float16 if device_type == 'cuda' else torch.bfloat16):
+        with autocast(device_type='cuda', dtype=torch.float16):
             outputs = self.model(img, tgt_input, tgt_padding_mask)
             outputs = outputs.flatten(0,1)
             tgt_output = tgt_output.flatten()

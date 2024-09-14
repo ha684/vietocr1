@@ -116,15 +116,12 @@ def translate(img, model, max_seq_length=128, sos_token=1, eos_token=2):
     return translated_sentence, char_probs
 
 def build_model(config):
-    vocab = Vocab(config['vocab'])
-    device = config['device']
-    
+    vocab = Vocab(config['vocab'])    
     model = VietOCR(len(vocab),
             config['backbone'],
             config['cnn'], 
             config['transformer'],
             config['seq_modeling'])
-    model = torch.nn.DataParallel(model)
 
     return model, vocab
 

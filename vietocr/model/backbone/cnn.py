@@ -8,7 +8,6 @@ import vietocr.model.backbone.convNext as convnet
 class CNN(nn.Module):
     def __init__(self, backbone: Literal['vgg19_bn', 'convNext'], **kwargs):
         super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         if backbone == 'vgg19_bn':
             self.model = vgg.vgg19_bn(**kwargs)
