@@ -222,7 +222,14 @@ class Trainer():
                     batch['tgt_padding_mask']
                 )
                 
-                with autocast():  
+                if self.device.startswith('cuda'):
+                    device_type = 'cuda'
+                elif self.device.startswith('cpu'):
+                    device_type = 'cpu'
+                else:
+                    raise ValueError(f"Unsupported device type: {self.device}")
+
+                with autocast(device_type=device_type, dtype=torch.float16 if device_type == 'cuda' else torch.bfloat16):
                     outputs = self.model(img, tgt_input, tgt_padding_mask)
                     outputs = outputs.flatten(0,1)
                     tgt_output = tgt_output.flatten()
