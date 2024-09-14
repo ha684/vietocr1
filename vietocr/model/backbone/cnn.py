@@ -18,15 +18,15 @@ class CNN(nn.Module):
             raise ValueError(f"Unsupported backbone: {backbone}")
         
         self.total_layers = len(list(self.model.features.parameters()))
-        self.frozen_layers = self.total_layers - 4
-        self.total_epochs = 20000
+        self.frozen_layers = self.total_layers - 1
+        self.total_epochs = 50000
         self.current_epoch = 0
         self.unfreeze_schedule = self._calculate_unfreeze_schedule()
         
         self.freeze()  
         
     def _calculate_unfreeze_schedule(self):
-        speed = 3.0  
+        speed = 2.0  
         return [
             int(self.total_layers * (1 - math.exp(-speed * (i / self.total_epochs) ** 2)))
             for i in range(self.total_epochs)
