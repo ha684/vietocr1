@@ -116,13 +116,16 @@ def translate(img, model, max_seq_length=128, sos_token=1, eos_token=2):
     return translated_sentence, char_probs
 
 def build_model(config):
-    vocab = Vocab(config['vocab'])    
+    vocab = Vocab(config['vocab'])
+    device = config['device']
+    
     model = VietOCR(len(vocab),
             config['backbone'],
             config['cnn'], 
             config['transformer'],
             config['seq_modeling'])
-    model = torch.nn.DataParallel(model)
+    model.to(device)
+
     return model, vocab
 
 def resize(w, h, expected_height, image_min_width, image_max_width):
