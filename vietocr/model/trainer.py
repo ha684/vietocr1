@@ -109,7 +109,7 @@ class Trainer():
             eps=1e-09,
             weight_decay=0.001
         )
-        self.train_dataset_size = self._get_dataset_size(self.train_annotation)
+        self.train_dataset_size = self._get_dataset_size(os.path.join(self.data_root,self.train_annotation))
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
         total_steps = self.num_epochs * self.iterations_per_epoch
         self.scheduler = OneCycleLR(self.optimizer, total_steps=total_steps, **config['optimizer'])

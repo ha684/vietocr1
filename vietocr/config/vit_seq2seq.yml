@@ -1,0 +1,19 @@
+backbone: vision
+cnn:
+    encoder_embed_dim: 768
+    encoder_depth: 12
+    encoder_num_heads: 12
+    encoder_global_attn_indexes: [2, 5, 8, 11]
+    hidden : 256
+    vit_patch_size : 16
+seq_modeling: seq2seq
+transformer:
+    encoder_hidden: 512
+    decoder_hidden: 512
+    img_channel: 1024
+    decoder_embedded: 512
+    dropout: 0.0
+
+optimizer:
+    max_lr: 0.001
+    pct_start: 0.1

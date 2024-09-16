@@ -128,14 +128,28 @@ def build_model(config):
 
     return model, vocab
 
+import math
+
 def resize(w, h, expected_height, image_min_width, image_max_width):
+    # Calculate the new width to maintain the aspect ratio
     new_w = int(expected_height * float(w) / float(h))
-    round_to = 10
-    new_w = math.ceil(new_w/round_to)*round_to
+    
+    # Round the new width to the nearest multiple of 16
+    round_to = 16
+    new_w = math.ceil(new_w / round_to) * round_to
+    
+    # Ensure the new width is within the specified min and max bounds
     new_w = max(new_w, image_min_width)
     new_w = min(new_w, image_max_width)
+    
+    # Adjust the new width to be divisible by the patch size (16)
+    new_w = (new_w // 16) * 16  # Round down to the nearest multiple of 16
+    
+    # Adjust the height to be divisible by the patch size (16)
+    new_h = (expected_height // 16) * 16  # Round down to the nearest multiple of 16
+    
+    return new_w, new_h
 
-    return new_w, expected_height
 
 def process_image(image, image_height, image_min_width, image_max_width):
     img = image.convert('RGB')

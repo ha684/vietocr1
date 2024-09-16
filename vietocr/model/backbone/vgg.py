@@ -45,6 +45,7 @@ class Vgg(nn.Module):
         conv = conv.transpose(-1, -2)
         conv = conv.flatten(2)
         conv = conv.permute(-1, 0, 1)
+        print(conv.shape)
         return conv
 
 def vgg11_bn(ss, ks, hidden, pretrained=True, dropout=0.5):

@@ -1,31 +1,18 @@
 aug:
   image_aug: true
   masked_language_model: true
-backbone: vgg19_bn
+backbone: vision
 cnn:
-  hidden: 512
-  ks:
-  - - 2
-    - 2
-  - - 2
-    - 2
-  - - 2
-    - 1
-  - - 2
-    - 1
-  - - 1
-    - 1
-  ss:
-  - - 2
-    - 2
-  - - 2
-    - 2
-  - - 2
-    - 1
-  - - 2
-    - 1
-  - - 1
-    - 1
+  encoder_depth: 12
+  encoder_embed_dim: 768
+  encoder_global_attn_indexes:
+  - 2
+  - 5
+  - 8
+  - 11
+  encoder_num_heads: 12
+  prompt_embed_dim: 256
+  vit_patch_size: 16
 dataloader:
   num_workers: 0
   pin_memory: true
@@ -35,20 +22,20 @@ dataset:
   image_max_width: 512
   image_min_width: 32
   name: ha1
-  train_annotation: label_train.txt
+  train_annotation: D:\Workspace\python_code\ImageGenerations\images_out\label_train.txt
   valid_annotation: label_test.txt
-device: cuda
+device: cuda:0
 optimizer:
   max_lr: 0.001
   pct_start: 0.1
 predictor:
   beamsearch: false
-pretrain: https://vocr.vn/data/vietocr/vgg_seq2seq.pth
 quiet: false
 seq_modeling: seq2seq
 trainer:
   batch_size: 1
   checkpoint: ./checkpoint/transformers_checkpoint.pth
+  epochs: 10
   export: ./weights/transformers.pth
   iters: 100000
   log: ./train.log
@@ -59,9 +46,8 @@ trainer:
 transformer:
   decoder_embedded: 512
   decoder_hidden: 512
-  dropout: 0.1
+  dropout: 0.0
   encoder_hidden: 512
-  img_channel: 512
+  img_channel: 1024
 vocab: aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&()*+,-./:;<=>?@[\]^_`{|}~’
   '
-weights: https://vocr.vn/data/vietocr/vgg_seq2seq.pth

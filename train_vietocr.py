@@ -1,11 +1,11 @@
 from vietocr.model.trainer import Trainer
 from vietocr.tool.config import Cfg
 import os
-config = Cfg.load_config_from_file(r'D:\Workspace\python_code\vietocr1\vietocr\config\vgg-seq2seq.yml')
+config = Cfg.load_config_from_file('./vietocr/config/vit_seq2seq.yml')
 dataset_params = {
     'name': 'ha1',
     'data_root': r'D:\Workspace\python_code\ImageGenerations\images_out',
-    'train_annotation': 'label_train.txt',
+    'train_annotation': r'D:\Workspace\python_code\ImageGenerations\images_out\label_train.txt',
     'valid_annotation': 'label_test.txt',
 }
 
@@ -41,7 +41,7 @@ try:
     trainer.save_checkpoint(checkpoint_path)
 except KeyboardInterrupt:
     pass
-    trainer.save_checkpoint(checkpoint_path)
-    print("Training interrupted. Checkpoint saved.")
+    # trainer.save_checkpoint(checkpoint_path)
+    # print("Training interrupted. Checkpoint saved.")
 
 config.save('config1.yaml')

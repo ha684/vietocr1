@@ -77,9 +77,10 @@ class ConvNeXtV2(nn.Module):
     def forward(self, x):
         x = self.forward_features(x)
         x = self.last_conv_1x1(x)
-        x = x.transpose(-1, -2)
         x = x.flatten(2)
+        print(x.shape)
         x = x.permute(-1, 0, 1)
+        print(x.shape)
         return x
 
 def convnextv2_base(pretrained=True, **kwargs):
