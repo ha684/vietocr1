@@ -137,8 +137,6 @@ class ImageEncoderViT(nn.Module):
             ),
             LayerNorm2d(out_chans),
         )
-
-        
         self.net_2 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1, bias=False)
         self.net_3 = nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1, bias=False)
 
@@ -164,7 +162,6 @@ class ImageEncoderViT(nn.Module):
 
 class Block(nn.Module):
     """Transformer blocks with support of window attention and residual propagation blocks"""
-
     def __init__(
         self,
         dim: int,
