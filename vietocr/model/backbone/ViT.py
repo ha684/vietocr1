@@ -139,8 +139,8 @@ class ImageEncoderViT(nn.Module):
         )
 
         
-        self.net_2 = nn.Conv2d(256, 512, kernel_size=1, stride=1, padding=0, bias=False)
-        self.net_3 = nn.Conv2d(512, 1024, kernel_size=1, stride=1, padding=0, bias=False)
+        self.net_2 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1, bias=False)
+        self.net_3 = nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.patch_embed(x)
