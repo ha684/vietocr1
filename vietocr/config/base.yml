@@ -1,5 +1,5 @@
 # change to list chars of your dataset or use default vietnamese chars
-vocab: 
+vocab: '!"$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJ�KLMNOPQRSTUVWXYZ[\]^_abcdefghijklmnopqrstuvwxyz{|}²³¼½¾ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯưẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹ '
 
 # cpu, cuda, cuda:0
 device: cuda:0
