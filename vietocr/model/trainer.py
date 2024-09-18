@@ -109,7 +109,7 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            "/kaggle/input/folder2/train_ha1".format(self.dataset_name),
+            "/kaggle/input/7mimages/merged_lmdb".format(self.dataset_name),
             self.data_root,
             self.train_annotation,
             self.masked_language_model,
@@ -129,7 +129,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                "/kaggle/input/folder2/valid_ha1".format(self.dataset_name),
+                "/kaggle/input/valid-set/valid_set".format(self.dataset_name),
                 self.data_root,
                 self.valid_annotation,
                 masked_language_model=False,
