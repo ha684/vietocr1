@@ -11,7 +11,7 @@ cnn:
   - 8
   - 11
   encoder_num_heads: 12
-  prompt_embed_dim: 256
+  hidden: 256
   vit_patch_size: 16
 dataloader:
   num_workers: 0
@@ -21,13 +21,13 @@ dataset:
   image_height: 32
   image_max_width: 512
   image_min_width: 32
-  name: ha1
-  train_annotation: D:\Workspace\python_code\ImageGenerations\images_out\label_train.txt
+  name: ha
+  train_annotation: label_train.txt
   valid_annotation: label_test.txt
 device: cuda:0
 optimizer:
-  max_lr: 0.001
-  pct_start: 0.1
+  max_lr: 0.01
+  pct_start: 0.05
 predictor:
   beamsearch: false
 quiet: false

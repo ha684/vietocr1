@@ -1,39 +1,41 @@
 import lmdb
-import os
+import struct
 
 
-def merge_lmdb(lmdb_paths, output_lmdb_path):
-    # Create the output LMDB environment
-    if not os.path.exists(output_lmdb_path):
-        os.makedirs(output_lmdb_path)
+def merge_lmdb(source_paths, target_path):
+    with lmdb.open(target_path, map_size=10 * 1024 * 1024 * 1024) as target_env:
+        with target_env.begin(write=True) as target_txn:
+            total_entries = 0
+            for source_index, source_path in enumerate(source_paths):
+                entries_in_source = 0
+                with lmdb.open(source_path, readonly=True) as source_env:
+                    with source_env.begin() as source_txn:
+                        cursor = source_txn.cursor()
+                        for key, value in cursor:
+                            # Always append a unique identifier to the key
+                            new_key = (
+                                key
+                                + b"__"
+                                + struct.pack(">QQ", source_index, entries_in_source)
+                            )
+                            target_txn.put(new_key, value)
+                            entries_in_source += 1
+                total_entries += entries_in_source
+                print(
+                    f"Source {source_index + 1}: Added {entries_in_source} entries. Total entries: {total_entries}"
+                )
 
-    # Set a larger map size if your data is large
-    map_size = 10 * 1024 * 1024 * 1024  # 10 GB, adjust if necessary
-
-    # Open the output LMDB
-    output_env = lmdb.open(output_lmdb_path, map_size=map_size)
-
-    # Iterate over each LMDB file
-    for db_index, db_path in enumerate(lmdb_paths):
-        print(f"Merging {db_path} into {output_lmdb_path} with prefix {db_index}_")
-
-        # Open the input LMDB
-        with lmdb.open(db_path, readonly=True) as input_env:
-            with input_env.begin() as input_txn:
-                with output_env.begin(write=True) as output_txn:
-                    # Iterate over all key-value pairs in the input LMDB
-                    for key, value in input_txn.cursor():
-                        # Prefix the key to ensure uniqueness
-                        unique_key = f"{db_index}_{key.decode('utf-8')}".encode("utf-8")
-                        # Put the modified key and original value into the output LMDB
-                        output_txn.put(unique_key, value)
-
-    # Close the output LMDB
-    output_env.close()
-    print("Merging complete.")
+    # Verify final count
+    with lmdb.open(target_path, readonly=True) as env:
+        with env.begin() as txn:
+            final_count = txn.stat()["entries"]
+    print(f"Final entry count in merged LMDB: {final_count}")
 
 
-# Example usage:
-lmdb_files = ["path/to/lmdb1", "path/to/lmdb2", "path/to/lmdb3"]
-output_lmdb = "path/to/output_lmdb"
-merge_lmdb(lmdb_files, output_lmdb)
+# Usage
+source_paths = [
+    r"D:\Workspace\python_code\vietocr1\train_ha",
+    r"D:\Workspace\python_code\vietocr1\train_ha1",
+]
+target_path = "merged_lmdb"
+merge_lmdb(source_paths, target_path)
