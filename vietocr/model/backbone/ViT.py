@@ -517,7 +517,7 @@ def _build_sam(
     return image_encoder
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     net = build_sam_vit_b(
         encoder_embed_dim=768,
         encoder_depth=12,

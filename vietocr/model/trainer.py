@@ -101,7 +101,7 @@ class Trainer:
 
         self.iter = 0
         self.criterion = LabelSmoothingLoss(
-            len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1
+            len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.08
         )
 
         transforms = None
@@ -109,7 +109,7 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            "/kaggle/input/folder4/train_ha4".format(self.dataset_name),
+            "/kaggle/input/folder3/train_ha3".format(self.dataset_name),
             self.data_root,
             self.train_annotation,
             self.masked_language_model,
@@ -127,7 +127,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                "/kaggle/input/folder4/valid_ha4".format(self.dataset_name),
+                "/kaggle/input/folder3/valid_ha3".format(self.dataset_name),
                 self.data_root,
                 self.valid_annotation,
                 masked_language_model=False,
