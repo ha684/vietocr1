@@ -109,14 +109,14 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            "/kaggle/input/folder3/train_ha3".format(self.dataset_name),
+            "/kaggle/input/folder4/train_ha4".format(self.dataset_name),
             self.data_root,
             self.train_annotation,
             self.masked_language_model,
             transform=transforms,
         )
         self.optimizer = AdamW(
-            self.model.parameters(), betas=(0.9, 0.98), eps=1e-09, weight_decay=0.000001
+            self.model.parameters(), betas=(0.9, 0.98), eps=1e-09, weight_decay=0.0000001
         )
         self.train_dataset_size = self._get_dataset_size(os.path.join(self.data_root,self.train_annotation))
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
@@ -127,7 +127,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                "/kaggle/input/folder3/valid_ha3".format(self.dataset_name),
+                "/kaggle/input/folder4/valid_ha4".format(self.dataset_name),
                 self.data_root,
                 self.valid_annotation,
                 masked_language_model=False,
