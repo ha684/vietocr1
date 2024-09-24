@@ -116,7 +116,7 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            os.path.join(self.data_root, self.train_annotation),
+            '/kaggle/input/folder1/train_ha1',
             masked_language_model=self.masked_language_model,
             transform=transforms,
         )
@@ -133,7 +133,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                os.path.join(self.data_root, self.valid_annotation),
+                '/kaggle/input/folder1/valid_ha1',
                 masked_language_model=False,
                 transform=None,
                 is_train=False,
