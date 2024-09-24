@@ -85,7 +85,7 @@ class Decoder(nn.Module):
         weighted = torch.bmm(a, encoder_outputs)
         
         weighted = weighted.permute(1, 0, 2)
-
+        print(f"embedded shape: {embedded.shape}, weighted shape: {weighted.shape}")
         rnn_input = torch.cat((embedded, weighted), dim = -1)
         output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))
         
