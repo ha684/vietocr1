@@ -148,6 +148,7 @@ def translate(img, model, max_seq_length=128, sos_token=1, eos_token=2):
 
 def build_model(config):
     vocab = Vocab(config["vocab"])
+    device = config["device"]
 
     model = VietOCR(
         len(vocab),
@@ -156,6 +157,8 @@ def build_model(config):
         config["transformer"],
         config["seq_modeling"],
     )
+    model.to(device)
+
     return model, vocab
 
 

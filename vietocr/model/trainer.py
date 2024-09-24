@@ -1,32 +1,25 @@
-import json
-import yaml
 import os
 import time
-import mmap
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 
-from torch.optim import AdamW
 from torch import nn
-from torch.utils.data import DataLoader, DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.optim import AdamW
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import OneCycleLR
-from torch.amp import autocast, GradScaler
+from torch.cuda.amp import autocast, GradScaler
 
 from PIL import Image
-from einops import rearrange
 
-from vietocr.optim.optim import ScheduledOptim
 from vietocr.optim.labelsmoothingloss import LabelSmoothingLoss
 from vietocr.tool.translate import build_model, translate, batch_translate_beam_search
 from vietocr.tool.utils import download_weights, compute_accuracy
 from vietocr.tool.logger import Logger
-from vietocr.loader.aug import ImgAugTransform, ImgAugTransformV2
+from vietocr.loader.aug import ImgAugTransformV2
 from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
 from vietocr.model.backbone.cnn import CNN
+
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
@@ -64,19 +57,19 @@ class EarlyStopping:
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
 
+
 class Trainer:
-    def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2(), local_rank=0):
+    def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
         self.config = config
-        self.local_rank = local_rank
-        self.device = torch.device(f"cuda:{self.local_rank}" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Build model and move it to the appropriate device
         self.model, self.vocab = build_model(config)
-        self.model.to(self.device)
 
-        # Distributed Data Parallel
+        # Wrap model with DataParallel if multiple GPUs are available
         if torch.cuda.device_count() > 1:
-            self.model = DDP(self.model, device_ids=[self.local_rank], output_device=self.local_rank)
+            self.model = nn.DataParallel(self.model)
+        self.model.to(self.device)
 
         self.num_iters = config["trainer"]["iters"]
         self.beamsearch = config["predictor"]["beamsearch"]
@@ -84,6 +77,8 @@ class Trainer:
         self.data_root = config["dataset"]["data_root"]
         self.train_annotation = config["dataset"]["train_annotation"]
         self.valid_annotation = config["dataset"]["valid_annotation"]
+        self.train_gen = config["dataset"]["train_gen"]
+        self.valid_gen = config["dataset"]["valid_gen"]
         self.dataset_name = config["dataset"]["name"]
         self.num_epochs = config["trainer"]["epochs"]
         self.batch_size = config["trainer"]["batch_size"]
@@ -116,7 +111,7 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            '/kaggle/input/folder1/train_ha1',
+            os.path.join(self.data_root, self.train_gen),
             masked_language_model=self.masked_language_model,
             transform=transforms,
         )
@@ -133,7 +128,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                '/kaggle/input/folder1/valid_ha1',
+                os.path.join(self.data_root, self.valid_gen),
                 masked_language_model=False,
                 transform=None,
                 is_train=False,
@@ -151,10 +146,6 @@ class Trainer:
 
         for epoch in range(1, self.num_epochs + 1):
             epoch_start_time = time.time()
-
-            # Set epoch for DistributedSampler
-            if isinstance(self.train_gen.sampler, DistributedSampler):
-                self.train_gen.sampler.set_epoch(epoch)
 
             for batch in self.train_gen:
                 self.iter += 1
@@ -186,7 +177,7 @@ class Trainer:
                     total_loader_time = 0
                     total_gpu_time = 0
 
-                if self.valid_annotation and self.iter % self.valid_every == 0 and self.local_rank == 0:
+                if self.valid_annotation and self.iter % self.valid_every == 0:
                     val_loss = self.validate()
                     acc_full_seq, acc_per_char = self.precision()
 
@@ -225,8 +216,7 @@ class Trainer:
                 self.logger.log(info)
 
             # Save checkpoint at the end of each epoch
-            if self.local_rank == 0:
-                self.save_checkpoint(self.checkpoint)
+            self.save_checkpoint(self.checkpoint)
 
     def validate(self):
         self.model.eval()
@@ -418,10 +408,7 @@ class Trainer:
             image_max_width=self.config["dataset"]["image_max_width"],
         )
 
-        if torch.cuda.device_count() > 1:
-            sampler = DistributedSampler(dataset)
-        else:
-            sampler = ClusterRandomSampler(dataset, self.batch_size, shuffle=is_train)
+        sampler = ClusterRandomSampler(dataset, self.batch_size, shuffle=is_train)
 
         collate_fn = Collator(masked_language_model)
         gen = DataLoader(
