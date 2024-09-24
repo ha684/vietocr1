@@ -101,7 +101,7 @@ class Trainer:
 
         self.iter = 0
         self.criterion = LabelSmoothingLoss(
-            len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.08
+            len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1
         )
 
         transforms = None
@@ -116,7 +116,7 @@ class Trainer:
             transform=transforms,
         )
         self.optimizer = AdamW(
-            self.model.parameters(), betas=(0.9, 0.98), eps=1e-09, weight_decay=0.0000001
+            self.model.parameters(), betas=(0.9, 0.999), eps=1e-09
         )
         self.train_dataset_size = self._get_dataset_size(os.path.join(self.data_root,self.train_annotation))
         self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
@@ -477,7 +477,7 @@ class Trainer:
             tgt_output = tgt_output.flatten()
             loss = self.criterion(outputs, tgt_output)
         self.scaler.scale(loss).backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=0.5)
         self.scaler.step(self.optimizer)
         self.scaler.update()
         self.scheduler.step()
