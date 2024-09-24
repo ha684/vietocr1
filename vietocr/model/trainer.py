@@ -1,33 +1,32 @@
-from vietocr.optim.optim import ScheduledOptim
-from vietocr.optim.labelsmoothingloss import LabelSmoothingLoss
-from torch.optim import Adam, SGD, AdamW
-from torch import nn
-from vietocr.tool.translate import build_model
-from vietocr.tool.translate import translate, batch_translate_beam_search
-from vietocr.tool.utils import download_weights
-from vietocr.tool.logger import Logger
-from vietocr.loader.aug import ImgAugTransform, ImgAugTransformV2
 import json
 import yaml
-import torch
-from vietocr.loader.dataloader_v1 import DataGen
-from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
-from torch.utils.data import DataLoader
-from einops import rearrange
-from torch.optim.lr_scheduler import CosineAnnealingLR, CyclicLR, OneCycleLR
-import mmap
-
-import torchvision
-from torch.amp import autocast, GradScaler
-from vietocr.tool.utils import compute_accuracy
-from PIL import Image
-import numpy as np
 import os
-import matplotlib.pyplot as plt
 import time
-from vietocr.model.backbone.cnn import CNN
+import mmap
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import numpy as np
+import matplotlib.pyplot as plt
+
+from torch.optim import AdamW
+from torch import nn
+from torch.utils.data import DataLoader, DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
+from torch.optim.lr_scheduler import OneCycleLR
+from torch.amp import autocast, GradScaler
+
+from PIL import Image
+from einops import rearrange
+
+from vietocr.optim.optim import ScheduledOptim
+from vietocr.optim.labelsmoothingloss import LabelSmoothingLoss
+from vietocr.tool.translate import build_model, translate, batch_translate_beam_search
+from vietocr.tool.utils import download_weights, compute_accuracy
+from vietocr.tool.logger import Logger
+from vietocr.loader.aug import ImgAugTransform, ImgAugTransformV2
+from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
+from vietocr.model.backbone.cnn import CNN
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
@@ -60,20 +59,25 @@ class EarlyStopping:
         """Saves model when validation loss decreases."""
         if self.verbose:
             print(
-                f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ..."
+                f"Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model ..."
             )
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
 
-
 class Trainer:
-    def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
-
+    def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2(), local_rank=0):
         self.config = config
+        self.local_rank = local_rank
+        self.device = torch.device(f"cuda:{self.local_rank}" if torch.cuda.is_available() else "cpu")
+
+        # Build model and move it to the appropriate device
         self.model, self.vocab = build_model(config)
+        self.model.to(self.device)
+
+        # Distributed Data Parallel
         if torch.cuda.device_count() > 1:
-            self.model = DDP(self.model)
-        self.device = config["device"]
+            self.model = DDP(self.model, device_ids=[self.local_rank], output_device=self.local_rank)
+
         self.num_iters = config["trainer"]["iters"]
         self.beamsearch = config["predictor"]["beamsearch"]
 
@@ -102,6 +106,7 @@ class Trainer:
             self.load_weights(weight_file)
 
         self.iter = 0
+        self.best_acc = 0
         self.criterion = LabelSmoothingLoss(
             len(self.vocab), padding_idx=self.vocab.pad, smoothing=0.1
         )
@@ -111,28 +116,27 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            "/kaggle/input/folder1/train_ha1".format(self.dataset_name),
-            self.data_root,
-            self.train_annotation,
-            self.masked_language_model,
+            os.path.join(self.data_root, self.train_annotation),
+            masked_language_model=self.masked_language_model,
             transform=transforms,
         )
+        self.train_dataset_size = len(self.train_gen.dataset)
+        self.iterations_per_epoch = len(self.train_gen)
+        total_steps = self.num_epochs * self.iterations_per_epoch
+
         self.optimizer = AdamW(
             self.model.parameters(), betas=(0.9, 0.999), eps=1e-09
         )
-        self.train_dataset_size = self._get_dataset_size(os.path.join(self.data_root,self.train_annotation))
-        self.iterations_per_epoch = max(1, self.train_dataset_size // self.batch_size)
-        total_steps = self.num_epochs * self.iterations_per_epoch
         self.scheduler = OneCycleLR(
             self.optimizer, total_steps=total_steps, **config["optimizer"]
         )
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                "/kaggle/input/folder1/valid_ha1".format(self.dataset_name),
-                self.data_root,
-                self.valid_annotation,
+                os.path.join(self.data_root, self.valid_annotation),
                 masked_language_model=False,
+                transform=None,
+                is_train=False,
             )
 
         self.train_losses = []
@@ -140,32 +144,22 @@ class Trainer:
             patience=config["trainer"].get("patience", 10), verbose=True
         )
 
-    def _get_dataset_size(self, annotation_path):
-        line_count = 0
-        with open(annotation_path, "r", encoding="utf-8", errors="ignore") as f:
-            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-                while mm.readline():
-                    line_count += 1
-        return line_count
-
     def train(self):
         total_loss = 0
         total_loader_time = 0
         total_gpu_time = 0
-        best_acc = 0
 
         for epoch in range(1, self.num_epochs + 1):
             epoch_start_time = time.time()
-            data_iter = iter(self.train_gen)
-            for i in range(1, self.iterations_per_epoch + 1):
-                self.iter = (epoch - 1) * self.iterations_per_epoch + i
+
+            # Set epoch for DistributedSampler
+            if isinstance(self.train_gen.sampler, DistributedSampler):
+                self.train_gen.sampler.set_epoch(epoch)
+
+            for batch in self.train_gen:
+                self.iter += 1
 
                 loader_start = time.time()
-                try:
-                    batch = next(data_iter)
-                except StopIteration:
-                    data_iter = iter(self.train_gen)
-                    batch = next(data_iter)
                 total_loader_time += time.time() - loader_start
 
                 gpu_start = time.time()
@@ -192,9 +186,9 @@ class Trainer:
                     total_loader_time = 0
                     total_gpu_time = 0
 
-                if self.valid_annotation and self.iter % self.valid_every == 0:
+                if self.valid_annotation and self.iter % self.valid_every == 0 and self.local_rank == 0:
                     val_loss = self.validate()
-                    acc_full_seq, acc_per_char = self.precision(self.metrics)
+                    acc_full_seq, acc_per_char = self.precision()
 
                     info = (
                         f"Epoch: {epoch}/{self.num_epochs} | "
@@ -207,10 +201,10 @@ class Trainer:
                     if hasattr(self, "logger"):
                         self.logger.log(info)
 
-                    if acc_full_seq > best_acc:
+                    if acc_full_seq > self.best_acc:
                         self.save_weights(self.export_weights)
-                        best_acc = acc_full_seq
-                        info = f"New best accuracy: {best_acc:.4f}. Weights saved."
+                        self.best_acc = acc_full_seq
+                        info = f"New best accuracy: {self.best_acc:.4f}. Weights saved."
                         print(info)
                         if hasattr(self, "logger"):
                             self.logger.log(info)
@@ -221,6 +215,7 @@ class Trainer:
                         if hasattr(self, "logger"):
                             self.logger.log("Early stopping triggered.")
                         return
+
                 self.cnn.update_freeze_state()
 
             epoch_duration = time.time() - epoch_start_time
@@ -229,13 +224,15 @@ class Trainer:
             if hasattr(self, "logger"):
                 self.logger.log(info)
 
+            # Save checkpoint at the end of each epoch
+            if self.local_rank == 0:
+                self.save_checkpoint(self.checkpoint)
+
     def validate(self):
         self.model.eval()
-
         total_loss = []
-
         with torch.no_grad():
-            for step, batch in enumerate(self.valid_gen):
+            for batch in self.valid_gen:
                 batch = self.batch_to_device(batch)
                 img, tgt_input, tgt_output, tgt_padding_mask = (
                     batch["img"],
@@ -252,63 +249,64 @@ class Trainer:
 
                 total_loss.append(loss.item())
 
-                del outputs
-                del loss
-
         total_loss = np.mean(total_loss)
-
         return total_loss
 
     def predict(self, sample=None):
         pred_sents = []
         actual_sents = []
         img_files = []
+        all_probs = []
 
-        for batch in self.valid_gen:
-            batch = self.batch_to_device(batch)
+        self.model.eval()
+        with torch.no_grad():
+            for batch in self.valid_gen:
+                batch = self.batch_to_device(batch)
 
-            if self.beamsearch:
-                translated_sentence = batch_translate_beam_search(
-                    batch["img"], self.model
-                )
-                prob = None
-            else:
-                translated_sentence, prob = translate(batch["img"], self.model)
+                if self.beamsearch:
+                    translated_sentence = batch_translate_beam_search(
+                        batch["img"], self.model
+                    )
+                    prob = None
+                else:
+                    translated_sentence, prob = translate(batch["img"], self.model)
 
-            pred_sent = self.vocab.batch_decode(translated_sentence.tolist())
-            actual_sent = self.vocab.batch_decode(batch["tgt_output"].tolist())
+                pred_sent = self.vocab.batch_decode(translated_sentence.tolist())
+                actual_sent = self.vocab.batch_decode(batch["tgt_output"].tolist())
 
-            img_files.extend(batch["filenames"])
+                img_files.extend(batch["filenames"])
+                pred_sents.extend(pred_sent)
+                actual_sents.extend(actual_sent)
 
-            pred_sents.extend(pred_sent)
-            actual_sents.extend(actual_sent)
+                if prob is not None:
+                    all_probs.extend(prob.tolist())
+                else:
+                    all_probs.extend([None] * len(pred_sent))
 
-            if sample != None and len(pred_sents) > sample:
-                break
+                if sample is not None and len(pred_sents) >= sample:
+                    pred_sents = pred_sents[:sample]
+                    actual_sents = actual_sents[:sample]
+                    img_files = img_files[:sample]
+                    all_probs = all_probs[:sample]
+                    break
 
-        return pred_sents, actual_sents, img_files, prob
+        return pred_sents, actual_sents, img_files, all_probs
 
     def precision(self, sample=None):
-
         pred_sents, actual_sents, _, _ = self.predict(sample=sample)
-
         acc_full_seq = compute_accuracy(actual_sents, pred_sents, mode="full_sequence")
         acc_per_char = compute_accuracy(actual_sents, pred_sents, mode="per_char")
-
         return acc_full_seq, acc_per_char
 
     def visualize_prediction(
         self, sample=16, errorcase=False, fontname="serif", fontsize=16
     ):
-
         pred_sents, actual_sents, img_files, probs = self.predict(sample)
 
         if errorcase:
-            wrongs = []
-            for i in range(len(img_files)):
-                if pred_sents[i] != actual_sents[i]:
-                    wrongs.append(i)
-
+            wrongs = [
+                i for i in range(len(img_files)) if pred_sents[i] != actual_sents[i]
+            ]
             pred_sents = [pred_sents[i] for i in wrongs]
             actual_sents = [actual_sents[i] for i in wrongs]
             img_files = [img_files[i] for i in wrongs]
@@ -318,19 +316,17 @@ class Trainer:
 
         fontdict = {"family": fontname, "size": fontsize}
 
-        for vis_idx in range(0, len(img_files)):
+        for vis_idx in range(len(img_files)):
             img_path = img_files[vis_idx]
             pred_sent = pred_sents[vis_idx]
             actual_sent = actual_sents[vis_idx]
-            prob = probs[vis_idx]
+            prob = probs[vis_idx] if probs[vis_idx] is not None else "N/A"
 
-            img = Image.open(open(img_path, "rb"))
+            img = Image.open(img_path)
             plt.figure()
             plt.imshow(img)
             plt.title(
-                "prob: {:.3f} - pred: {} - actual: {}".format(
-                    prob, pred_sent, actual_sent
-                ),
+                f"prob: {prob} - pred: {pred_sent} - actual: {actual_sent}",
                 loc="left",
                 fontdict=fontdict,
             )
@@ -341,12 +337,14 @@ class Trainer:
     def visualize_dataset(self, sample=16, fontname="serif"):
         n = 0
         for batch in self.train_gen:
-            for i in range(self.batch_size):
-                img = batch["img"][i].numpy().transpose(1, 2, 0)
-                sent = self.vocab.decode(batch["tgt_input"].T[i].tolist())
+            imgs = batch["img"]
+            tgt_inputs = batch["tgt_input"]
+            for i in range(len(imgs)):
+                img = imgs[i].cpu().numpy().transpose(1, 2, 0)
+                sent = self.vocab.decode(tgt_inputs.T[i].tolist())
 
                 plt.figure()
-                plt.title("sent: {}".format(sent), loc="center", fontname=fontname)
+                plt.title(f"sent: {sent}", loc="center", fontname=fontname)
                 plt.imshow(img)
                 plt.axis("off")
 
@@ -356,48 +354,34 @@ class Trainer:
                     return
 
     def load_checkpoint(self, filename):
-        checkpoint = torch.load(filename)
-        # optim = AdamW(self.model.parameters(), betas=(0.9, 0.98), eps=1e-09)
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
-        self.model.load_state_dict(checkpoint["state_dict"])
+        checkpoint = torch.load(filename, map_location=self.device)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         self.iter = checkpoint["iter"]
         self.train_losses = checkpoint["train_losses"]
+        self.best_acc = checkpoint.get("best_acc", 0)
 
     def save_checkpoint(self, filename):
         state = {
             "iter": self.iter,
-            "state_dict": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "scheduler_state_dict": self.scheduler.state_dict(),
             "train_losses": self.train_losses,
+            "best_acc": self.best_acc,
         }
-
         path, _ = os.path.split(filename)
         os.makedirs(path, exist_ok=True)
-
         torch.save(state, filename)
 
     def load_weights(self, filename):
-        state_dict = torch.load(
-            filename, map_location=torch.device(self.device), weights_only=True
-        )
-
-        for name, param in self.model.named_parameters():
-            if name not in state_dict:
-                print("{} not found".format(name))
-            elif state_dict[name].shape != param.shape:
-                print(
-                    "{} missmatching shape, required {} but found {}".format(
-                        name, param.shape, state_dict[name].shape
-                    )
-                )
-                del state_dict[name]
-
+        state_dict = torch.load(filename, map_location=self.device)
         self.model.load_state_dict(state_dict, strict=False)
 
     def save_weights(self, filename):
         path, _ = os.path.split(filename)
         os.makedirs(path, exist_ok=True)
-
         torch.save(self.model.state_dict(), filename)
 
     def batch_to_device(self, batch):
@@ -418,16 +402,15 @@ class Trainer:
 
     def data_gen(
         self,
-        lmdb_path,
-        data_root,
-        annotation,
+        annotation_path,
         masked_language_model=True,
         transform=None,
+        is_train=True,
     ):
         dataset = OCRDataset(
-            lmdb_path=lmdb_path,
-            root_dir=data_root,
-            annotation_path=annotation,
+            lmdb_path=None,
+            root_dir=self.data_root,
+            annotation_path=annotation_path,
             vocab=self.vocab,
             transform=transform,
             image_height=self.config["dataset"]["image_height"],
@@ -435,33 +418,24 @@ class Trainer:
             image_max_width=self.config["dataset"]["image_max_width"],
         )
 
-        sampler = ClusterRandomSampler(dataset, self.batch_size, True)
-        collate_fn = Collator(masked_language_model)
+        if torch.cuda.device_count() > 1:
+            sampler = DistributedSampler(dataset)
+        else:
+            sampler = ClusterRandomSampler(dataset, self.batch_size, shuffle=is_train)
 
+        collate_fn = Collator(masked_language_model)
         gen = DataLoader(
             dataset,
             batch_size=self.batch_size,
-            sampler=DistributedSampler(dataset) if torch.cuda.device_count() > 1 else sampler,
+            sampler=sampler,
             collate_fn=collate_fn,
             shuffle=False,
             drop_last=False,
-            **self.config["dataloader"],
+            pin_memory=True,
+            num_workers=self.config["dataloader"].get("num_workers", 4),
         )
 
         return gen
-
-    def data_gen_v1(self, lmdb_path, data_root, annotation):
-        data_gen = DataGen(
-            data_root,
-            annotation,
-            self.vocab,
-            "cpu",
-            image_height=self.config["dataset"]["image_height"],
-            image_min_width=self.config["dataset"]["image_min_width"],
-            image_max_width=self.config["dataset"]["image_max_width"],
-        )
-
-        return data_gen
 
     def step(self, batch):
         self.model.train()
@@ -473,16 +447,17 @@ class Trainer:
             batch["tgt_padding_mask"],
         )
 
+        self.optimizer.zero_grad(set_to_none=True)
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             outputs = self.model(img, tgt_input, tgt_padding_mask)
             outputs = outputs.flatten(0, 1)
             tgt_output = tgt_output.flatten()
             loss = self.criterion(outputs, tgt_output)
+
         self.scaler.scale(loss).backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(),max_norm=0.5)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
         self.scaler.step(self.optimizer)
         self.scaler.update()
         self.scheduler.step()
-        self.optimizer.zero_grad(set_to_none=True)
 
         return loss.item()
