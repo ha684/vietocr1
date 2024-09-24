@@ -7,13 +7,13 @@ from vietocr.tool.config import Cfg
 
 def main_worker(local_rank, config):
     # Initialize DDP and set device
-    torch.distributed.init_process_group(backend='nccl', init_method='env://')
+    torch.distributed.init_process_group(backend='nccl', init_method='env://',world_size=2, rank=local_rank)
     torch.cuda.set_device(local_rank)
 
     # Set random seeds
     torch.manual_seed(0)
     np.random.seed(0)
-
+    print(f"Process {local_rank} initialized on device {torch.cuda.current_device()}")
     trainer = Trainer(config, local_rank=local_rank)
 
     checkpoint_path = "./checkpoint/seq2seq_checkpoint.pth"
@@ -38,7 +38,8 @@ def main_worker(local_rank, config):
 
 if __name__ == '__main__':
     config = Cfg.load_config_from_file("./vietocr/config/vit_seq2seq.yml")
-
+    for i in range(torch.cuda.device_count()):
+        print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
     dataset_params = {
         "name": "ha",
         "data_root": "/kaggle/input/folder1/label1",
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     config["trainer"].update(params)
     config["dataset"].update(dataset_params)
     # Remove config["device"] as devices are set per process
-    config["dataloader"]["num_workers"] = 4
+    config["dataloader"]["num_workers"] = 0
 
     num_gpus = torch.cuda.device_count()
     mp.spawn(main_worker, nprocs=num_gpus, args=(config,))
