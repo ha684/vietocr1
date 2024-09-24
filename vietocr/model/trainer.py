@@ -77,8 +77,8 @@ class Trainer:
         self.data_root = config["dataset"]["data_root"]
         self.train_annotation = config["dataset"]["train_annotation"]
         self.valid_annotation = config["dataset"]["valid_annotation"]
-        self.train_gen = config["dataset"]["train_gen"]
-        self.valid_gen = config["dataset"]["valid_gen"]
+        self.train_gen_path = config["dataset"]["train_gen"]
+        self.valid_gen_path = config["dataset"]["valid_gen"]
         self.dataset_name = config["dataset"]["name"]
         self.num_epochs = config["trainer"]["epochs"]
         self.batch_size = config["trainer"]["batch_size"]
@@ -111,7 +111,7 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            os.path.join(self.data_root, self.train_gen),
+            os.path.join(self.data_root, self.train_gen_path),
             masked_language_model=self.masked_language_model,
             transform=transforms,
         )
@@ -128,7 +128,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                os.path.join(self.data_root, self.valid_gen),
+                os.path.join(self.data_root, self.valid_gen_path),
                 masked_language_model=False,
                 transform=None,
                 is_train=False,
