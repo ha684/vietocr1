@@ -356,7 +356,6 @@ class Trainer:
             self.best_acc = checkpoint.get("best_acc", 0)
         except:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.model.load_state_dict(checkpoint['state_dict'])
             self.iter = checkpoint['iter']
             self.train_losses = checkpoint['train_losses']
 
