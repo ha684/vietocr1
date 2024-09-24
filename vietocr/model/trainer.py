@@ -8,7 +8,7 @@ from torch import nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import OneCycleLR
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 
 from PIL import Image
 
