@@ -7,7 +7,7 @@ from vietocr.tool.config import Cfg
 
 def main_worker(local_rank, config):
     # Initialize DDP and set device
-    torch.distributed.init_process_group(backend='nccl', init_method='env://',world_size=2, rank=local_rank)
+    torch.distributed.init_process_group(backend='gloo', init_method='env://',world_size=2, rank=local_rank)
     torch.cuda.set_device(local_rank)
 
     # Set random seeds
