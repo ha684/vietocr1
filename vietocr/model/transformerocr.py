@@ -18,8 +18,6 @@ class VietOCR(nn.Module):
             self.transformer = LanguageTransformer(vocab_size, **transformer_args)
         elif seq_modeling == 'seq2seq':
             self.transformer = Seq2Seq(vocab_size, **transformer_args)
-            self.transformer = nn.DataParallel(self.transformer)
-
         elif seq_modeling == 'convseq2seq':
             self.transformer = ConvSeq2Seq(vocab_size, **transformer_args)
         # elif seq_modeling == 'decoder':
@@ -36,7 +34,6 @@ class VietOCR(nn.Module):
             - output: b t v
         """
         src = self.cnn(img)
-        tgt_input = tgt_input.permute(1,0)
         if self.seq_modeling == 'transformer':
             outputs = self.transformer(src, tgt_input, tgt_key_padding_mask=tgt_key_padding_mask)
         elif self.seq_modeling == 'decoder':

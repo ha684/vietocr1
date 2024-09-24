@@ -66,10 +66,6 @@ class Trainer:
         # Build model and move it to the appropriate device
         self.model, self.vocab = build_model(config)
 
-        # Wrap model with DataParallel if multiple GPUs are available
-        if torch.cuda.device_count() > 1:
-            self.model = nn.DataParallel(self.model)
-        self.model.to(self.device)
 
         self.num_iters = config["trainer"]["iters"]
         self.beamsearch = config["predictor"]["beamsearch"]
@@ -348,7 +344,7 @@ class Trainer:
     def load_checkpoint(self, filename):
         checkpoint = torch.load(filename, map_location=self.device)
         try:
-            self.model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+            self.model.load_state_dict(checkpoint["model_state_dict"],strict=False)
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             self.iter = checkpoint["iter"]
