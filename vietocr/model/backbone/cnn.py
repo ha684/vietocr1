@@ -10,7 +10,6 @@ from vietocr.model.backbone.ViT import build_sam_vit_b as vision
 class CNN(nn.Module):
     def __init__(self, backbone: Literal["vgg19_bn", "convNext", "vision"], **kwargs):
         super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         checkpoint = "/kaggle/input/checkpoint/pytorch/default/1/pytorch_model.bin"
         if backbone == "vgg19_bn":
             self.model = vgg.vgg19_bn(**kwargs)
@@ -46,8 +45,7 @@ class CNN(nn.Module):
         ]
 
     def forward(self, x):
-        model = self.model.to(self.device)
-        return model(x)
+        return self.model(x)
 
     def freeze(self):
         for i, param in enumerate(self.get_backbone_parameters()):
