@@ -8,7 +8,7 @@ class Encoder(nn.Module):
     def __init__(self, emb_dim, enc_hid_dim, dec_hid_dim, dropout):
         super().__init__()
                 
-        self.rnn = nn.GRU(emb_dim, enc_hid_dim, bidirectional = True)
+        self.rnn = nn.GRU(emb_dim, enc_hid_dim, bidirectional=True, batch_first=True)
         self.fc = nn.Linear(enc_hid_dim * 2, dec_hid_dim)
         self.dropout = nn.Dropout(dropout)
         
@@ -19,7 +19,6 @@ class Encoder(nn.Module):
         outputs: src_len x batch_size x hid_dim 
         hidden: batch_size x hid_dim
         """
-        
         embedded = self.dropout(src)
         # Pack padded sequence
         outputs,hidden = self.rnn(embedded)
@@ -36,22 +35,17 @@ class Attention(nn.Module):
         
     def forward(self, hidden, encoder_outputs):
         """
-        hidden: batch_size x hid_dim
-        encoder_outputs: src_len x batch_size x hid_dim,
-        outputs: batch_size x src_len
+        hidden: [batch_size, dec_hid_dim]
+        encoder_outputs: [batch_size, src_len, enc_hid_dim * 2]
+        attention: [batch_size, src_len]
         """
-        
-        batch_size = encoder_outputs.shape[1]
-        src_len = encoder_outputs.shape[0]
-        
-        hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)
-  
-        encoder_outputs = encoder_outputs.permute(1, 0, 2)
-        
-        energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim = 2))) 
-        
-        attention = self.v(energy).squeeze(2)
-        return F.softmax(attention, dim = 1)
+        batch_size = encoder_outputs.shape[0]
+        src_len = encoder_outputs.shape[1]
+
+        hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)  # [batch_size, src_len, dec_hid_dim]
+        energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))  # [batch_size, src_len, dec_hid_dim]
+        attention = self.v(energy).squeeze(2)  # [batch_size, src_len]
+        return F.softmax(attention, dim=1)
 
 class Decoder(nn.Module):
     def __init__(self, output_dim, emb_dim, enc_hid_dim, dec_hid_dim, dropout, attention):
@@ -67,52 +61,44 @@ class Decoder(nn.Module):
 
     def forward(self, trg, hidden, encoder_outputs):
         """
-        trg: trg_len x batch_size
-        hidden: batch_size x dec_hid_dim
-        encoder_outputs: src_len x batch_size x enc_hid_dim * 2
+        trg: [batch_size, trg_len]
+        hidden: [batch_size, dec_hid_dim]
+        encoder_outputs: [batch_size, src_len, enc_hid_dim * 2]
+        outputs: [batch_size, trg_len, output_dim]
         """
-
-        trg_len = trg.shape[0]
-        batch_size = trg.shape[1]
-
         # Embed the entire target sequence
-        embedded = self.dropout(self.embedding(trg))  # Shape: [trg_len, batch_size, emb_dim]
+        embedded = self.dropout(self.embedding(trg))  # [batch_size, trg_len, emb_dim]
 
         # Initialize tensors to hold outputs
-        outputs = torch.zeros(trg_len, batch_size, self.output_dim).to(embedded.device)
+        batch_size = trg.shape[0]
+        trg_len = trg.shape[1]
+        outputs = torch.zeros(batch_size, trg_len, self.output_dim).to(embedded.device)
 
         for t in range(trg_len):
             # Get the embedding of the current input word
-            embedded_t = embedded[t].unsqueeze(0)  # Shape: [1, batch_size, emb_dim]
+            embedded_t = embedded[:, t, :].unsqueeze(1)  # [batch_size, 1, emb_dim]
 
             # Compute attention weights
-            a = self.attention(hidden, encoder_outputs)  # Shape: [batch_size, src_len]
-            a = a.unsqueeze(1)  # Shape: [batch_size, 1, src_len]
-
-            encoder_outputs_transposed = encoder_outputs.permute(1, 0, 2)  # [batch_size, src_len, enc_hid_dim * 2]
+            a = self.attention(hidden, encoder_outputs)  # [batch_size, src_len]
+            a = a.unsqueeze(1)  # [batch_size, 1, src_len]
 
             # Compute the weighted sum of encoder outputs
-            weighted = torch.bmm(a, encoder_outputs_transposed)  # [batch_size, 1, enc_hid_dim * 2]
-            weighted = weighted.permute(1, 0, 2)  # [1, batch_size, enc_hid_dim * 2]
+            weighted = torch.bmm(a, encoder_outputs)  # [batch_size, 1, enc_hid_dim * 2]
 
             # Concatenate embedded input word and weighted encoder outputs
-            rnn_input = torch.cat((embedded_t, weighted), dim=2)  # [1, batch_size, emb_dim + enc_hid_dim * 2]
+            rnn_input = torch.cat((embedded_t, weighted), dim=2)  # [batch_size, 1, emb_dim + enc_hid_dim * 2]
 
             # Pass through RNN
-            output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))  # Both are [1, batch_size, dec_hid_dim]
-
-            # Remove time dimension
-            output = output.squeeze(0)  # [batch_size, dec_hid_dim]
-            embedded_t = embedded_t.squeeze(0)  # [batch_size, emb_dim]
-            weighted = weighted.squeeze(0)  # [batch_size, enc_hid_dim * 2]
+            output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))  # output: [batch_size, 1, dec_hid_dim]
 
             # Compute predictions
+            output = output.squeeze(1)  # [batch_size, dec_hid_dim]
+            weighted = weighted.squeeze(1)  # [batch_size, enc_hid_dim * 2]
+            embedded_t = embedded_t.squeeze(1)  # [batch_size, emb_dim]
             prediction = self.fc_out(torch.cat((output, weighted, embedded_t), dim=1))  # [batch_size, output_dim]
 
             # Store predictions
-            outputs[t] = prediction
-
-            # Update hidden state (if not using teacher forcing, you'd use the predicted word here)
+            outputs[:, t, :] = prediction
 
         return outputs, hidden.squeeze(0)
 
