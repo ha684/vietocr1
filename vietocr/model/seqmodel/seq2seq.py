@@ -149,16 +149,28 @@ class Seq2Seq(nn.Module):
         outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(device)
         encoder_outputs, hidden = self.encoder(src)
         
-        for t in range(trg_len):
-            input = trg[t] 
-            output, hidden, _ = self.decoder(input, hidden, encoder_outputs)
-            
-            outputs[t] = output
+        outputs = self.decode(trg, hidden, encoder_outputs)
             
         outputs = outputs.transpose(0, 1).contiguous()
 
         return outputs
+    
+    def decode(self, trg, hidden, encoder_outputs):
+        # This method will be called by DataParallel and handles the per-GPU batch
+        trg_len = trg.shape[0]
+        batch_size = trg.shape[1]
+        trg_vocab_size = self.decoder.output_dim
+        device = trg.device
 
+        outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(device)
+
+        for t in range(trg_len):
+            input = trg[t]
+            output, hidden, _ = self.decoder(input, hidden, encoder_outputs)
+            outputs[t] = output
+
+        return outputs
+    
     def expand_memory(self, memory, beam_size):
         hidden, encoder_outputs = memory
         hidden = hidden.repeat(beam_size, 1)
