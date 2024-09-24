@@ -26,7 +26,8 @@ import os
 import matplotlib.pyplot as plt
 import time
 from vietocr.model.backbone.cnn import CNN
-
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
@@ -70,7 +71,8 @@ class Trainer:
 
         self.config = config
         self.model, self.vocab = build_model(config)
-
+        if torch.cuda.device_count() > 1:
+            self.model = DDP(self.model)
         self.device = config["device"]
         self.num_iters = config["trainer"]["iters"]
         self.beamsearch = config["predictor"]["beamsearch"]
@@ -439,7 +441,7 @@ class Trainer:
         gen = DataLoader(
             dataset,
             batch_size=self.batch_size,
-            sampler=sampler,
+            sampler=DistributedSampler(dataset) if torch.cuda.device_count() > 1 else sampler,
             collate_fn=collate_fn,
             shuffle=False,
             drop_last=False,
