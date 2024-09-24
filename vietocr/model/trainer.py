@@ -117,7 +117,7 @@ class Trainer:
         total_steps = self.num_epochs * self.iterations_per_epoch
 
         self.optimizer = AdamW(
-            self.model.parameters(), betas=(0.9, 0.999), eps=1e-09
+            self.model.parameters(), betas=(0.9, 0.98), eps=1e-09
         )
         self.scheduler = OneCycleLR(
             self.optimizer, total_steps=total_steps, **config["optimizer"]
