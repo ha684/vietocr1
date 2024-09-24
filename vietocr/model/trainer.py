@@ -112,6 +112,7 @@ class Trainer:
 
         self.train_gen = self.data_gen(
             os.path.join(self.data_root, self.train_gen_path),
+            annotation_path=self.train_annotation,
             masked_language_model=self.masked_language_model,
             transform=transforms,
         )
@@ -129,6 +130,7 @@ class Trainer:
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
                 os.path.join(self.data_root, self.valid_gen_path),
+                annotation_path=self.valid_annotation,
                 masked_language_model=False,
                 transform=None,
                 is_train=False,
@@ -392,13 +394,14 @@ class Trainer:
 
     def data_gen(
         self,
+        lmdb_path,
         annotation_path,
         masked_language_model=True,
         transform=None,
         is_train=True,
     ):
         dataset = OCRDataset(
-            lmdb_path=None,
+            lmdb_path,
             root_dir=self.data_root,
             annotation_path=annotation_path,
             vocab=self.vocab,
