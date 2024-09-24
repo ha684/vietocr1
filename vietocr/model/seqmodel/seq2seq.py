@@ -59,45 +59,63 @@ class Decoder(nn.Module):
 
         self.output_dim = output_dim
         self.attention = attention
-        
+
         self.embedding = nn.Embedding(output_dim, emb_dim)
         self.rnn = nn.GRU((enc_hid_dim * 2) + emb_dim, dec_hid_dim)
         self.fc_out = nn.Linear((enc_hid_dim * 2) + dec_hid_dim + emb_dim, output_dim)
         self.dropout = nn.Dropout(dropout)
-        
-    def forward(self, input, hidden, encoder_outputs):
+
+    def forward(self, trg, hidden, encoder_outputs):
         """
-        inputs: batch_size
-        hidden: batch_size x hid_dim
-        encoder_outputs: src_len x batch_size x hid_dim
+        trg: trg_len x batch_size
+        hidden: batch_size x dec_hid_dim
+        encoder_outputs: src_len x batch_size x enc_hid_dim * 2
         """
-             
-        input = input.unsqueeze(0)
-        
-        embedded = self.dropout(self.embedding(input))
-        
-        a = self.attention(hidden, encoder_outputs)
-                
-        a = a.unsqueeze(1)
-        
-        encoder_outputs = encoder_outputs.permute(1, 0, 2)
-        
-        weighted = torch.bmm(a, encoder_outputs)
-        
-        weighted = weighted.permute(1, 0, 2)
-        print(f"embedded shape: {embedded.shape}, weighted shape: {weighted.shape}")
-        rnn_input = torch.cat((embedded, weighted), dim = -1)
-        output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))
-        
-        assert (output == hidden).all()
-        
-        embedded = embedded.squeeze(0)
-        output = output.squeeze(0)
-        weighted = weighted.squeeze(0)
-        
-        prediction = self.fc_out(torch.cat((output, weighted, embedded), dim = 1))
-        
-        return prediction, hidden.squeeze(0), a.squeeze(1)
+
+        trg_len = trg.shape[0]
+        batch_size = trg.shape[1]
+
+        # Embed the entire target sequence
+        embedded = self.dropout(self.embedding(trg))  # Shape: [trg_len, batch_size, emb_dim]
+
+        # Initialize tensors to hold outputs
+        outputs = torch.zeros(trg_len, batch_size, self.output_dim).to(embedded.device)
+
+        for t in range(trg_len):
+            # Get the embedding of the current input word
+            embedded_t = embedded[t].unsqueeze(0)  # Shape: [1, batch_size, emb_dim]
+
+            # Compute attention weights
+            a = self.attention(hidden, encoder_outputs)  # Shape: [batch_size, src_len]
+            a = a.unsqueeze(1)  # Shape: [batch_size, 1, src_len]
+
+            encoder_outputs_transposed = encoder_outputs.permute(1, 0, 2)  # [batch_size, src_len, enc_hid_dim * 2]
+
+            # Compute the weighted sum of encoder outputs
+            weighted = torch.bmm(a, encoder_outputs_transposed)  # [batch_size, 1, enc_hid_dim * 2]
+            weighted = weighted.permute(1, 0, 2)  # [1, batch_size, enc_hid_dim * 2]
+
+            # Concatenate embedded input word and weighted encoder outputs
+            rnn_input = torch.cat((embedded_t, weighted), dim=2)  # [1, batch_size, emb_dim + enc_hid_dim * 2]
+
+            # Pass through RNN
+            output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))  # Both are [1, batch_size, dec_hid_dim]
+
+            # Remove time dimension
+            output = output.squeeze(0)  # [batch_size, dec_hid_dim]
+            embedded_t = embedded_t.squeeze(0)  # [batch_size, emb_dim]
+            weighted = weighted.squeeze(0)  # [batch_size, enc_hid_dim * 2]
+
+            # Compute predictions
+            prediction = self.fc_out(torch.cat((output, weighted, embedded_t), dim=1))  # [batch_size, output_dim]
+
+            # Store predictions
+            outputs[t] = prediction
+
+            # Update hidden state (if not using teacher forcing, you'd use the predicted word here)
+
+        return outputs, hidden.squeeze(0)
+
 
 class Seq2Seq(nn.Module):
     def __init__(self, vocab_size, encoder_hidden, decoder_hidden, img_channel, decoder_embedded, dropout=0.1):
@@ -136,22 +154,19 @@ class Seq2Seq(nn.Module):
 
     def forward(self, src, trg):
         """
-        src: time_step x batch_size
-        trg: time_step x batch_size
-        outputs: batch_size x time_step x vocab_size
+        src: src_len x batch_size x img_channel
+        trg: trg_len x batch_size
+        outputs: batch_size x trg_len x output_dim
         """
 
-        batch_size = src.shape[1]
-        trg_len = trg.shape[0]
-        trg_vocab_size = self.decoder.output_dim
-        device = src.device
-
-        outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(device)
+        # Encode the source sequence
         encoder_outputs, hidden = self.encoder(src)
-        
-        outputs = self.decode(trg, hidden, encoder_outputs)
-            
-        outputs = outputs.transpose(0, 1).contiguous()
+
+        # Decode the target sequence
+        outputs, _ = self.decoder(trg, hidden, encoder_outputs)  # outputs: [trg_len, batch_size, output_dim]
+
+        # Transpose outputs to [batch_size, trg_len, output_dim]
+        outputs = outputs.permute(1, 0, 2).contiguous()
 
         return outputs
     
