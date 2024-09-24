@@ -347,13 +347,18 @@ class Trainer:
 
     def load_checkpoint(self, filename):
         checkpoint = torch.load(filename, map_location=self.device)
-        if checkpoint["model_state_dict"]:
+        try:
             self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-        self.iter = checkpoint["iter"]
-        self.train_losses = checkpoint["train_losses"]
-        self.best_acc = checkpoint.get("best_acc", 0)
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+            self.iter = checkpoint["iter"]
+            self.train_losses = checkpoint["train_losses"]
+            self.best_acc = checkpoint.get("best_acc", 0)
+        except:
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+            self.iter = checkpoint["iter"]
+            self.train_losses = checkpoint["train_losses"]
 
     def save_checkpoint(self, filename):
         state = {
