@@ -65,7 +65,6 @@ class OCRDataset(Dataset):
         self.txn = self.env.begin(write=False)
 
         nSamples = int(self.txn.get("num-samples".encode()))
-        print(nSamples)
         self.nSamples = nSamples
 
         self.build_cluster_indices()
