@@ -93,7 +93,6 @@ class ConvNeXtV2(nn.Module):
         x = self.last_conv_1x1(x)
         x = x.flatten(2)
         x = x.permute(-1, 0, 1)
-        print(x.shape)
         return x
 
 
