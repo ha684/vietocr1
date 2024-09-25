@@ -8,10 +8,10 @@ cnn:
     vit_patch_size : 16
 seq_modeling: seq2seq
 transformer:
-    encoder_hidden: 1024
-    decoder_hidden: 1024
+    encoder_hidden: 512
+    decoder_hidden: 512
     img_channel: 1024
-    decoder_embedded: 1024
+    decoder_embedded: 512
     dropout: 0.0
 
 optimizer:
