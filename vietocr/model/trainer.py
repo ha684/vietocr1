@@ -117,7 +117,7 @@ class Trainer:
         total_steps = self.num_epochs * self.iterations_per_epoch
 
         self.optimizer = AdamW(
-            self.model.parameters(), betas=(0.9, 0.999), eps=1e-09
+            self.model.parameters(), betas=(0.9, 0.98), eps=1e-09
         )
         self.scheduler = OneCycleLR(
             self.optimizer, total_steps=total_steps, **config["optimizer"]
@@ -178,7 +178,7 @@ class Trainer:
                 if self.valid_annotation and self.iter % self.valid_every == 0:
                     val_loss = self.validate()
                     acc_full_seq, acc_per_char = self.precision()
-
+                    torch.cuda.empty_cache()
                     info = (
                         f"Epoch: {epoch}/{self.num_epochs} | "
                         f"Iter: {self.iter} | "
@@ -350,7 +350,7 @@ class Trainer:
             self.best_acc = checkpoint.get("best_acc", 0)
         except:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.model.load_state_dict(checkpoint['state_dict'], strict=False)
+            self.model.load_state_dict(checkpoint['state_dict'])
             self.train_losses = checkpoint['train_losses']
 
     def save_checkpoint(self, filename):

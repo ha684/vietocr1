@@ -17,7 +17,7 @@ class CNN(nn.Module):
         elif backbone == "convNext":
             self.model = convnet.convnextv2_base(**kwargs)
         elif backbone == "vision":
-            self.model = vision(**kwargs, checkpoint=checkpoint)
+            self.model = vision(**kwargs, checkpoint=None)
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 
