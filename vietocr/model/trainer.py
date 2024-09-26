@@ -57,7 +57,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
 
-
+import gc
 class Trainer:
     def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
         self.config = config
@@ -179,6 +179,7 @@ class Trainer:
                     val_loss = self.validate()
                     acc_full_seq, acc_per_char = self.precision()
                     torch.cuda.empty_cache()
+                    gc.collect()
                     info = (
                         f"Epoch: {epoch}/{self.num_epochs} | "
                         f"Iter: {self.iter} | "
