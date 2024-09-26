@@ -346,22 +346,17 @@ class Trainer:
         try:
             self.model.load_state_dict(checkpoint["model_state_dict"],strict=False)
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-            self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-            self.iter = checkpoint["iter"]
             self.train_losses = checkpoint["train_losses"]
             self.best_acc = checkpoint.get("best_acc", 0)
         except:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
             self.model.load_state_dict(checkpoint['state_dict'], strict=False)
-            self.iter = checkpoint['iter']
             self.train_losses = checkpoint['train_losses']
 
     def save_checkpoint(self, filename):
         state = {
-            "iter": self.iter,
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
-            "scheduler_state_dict": self.scheduler.state_dict(),
             "train_losses": self.train_losses,
             "best_acc": self.best_acc,
         }
