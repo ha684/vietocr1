@@ -342,9 +342,9 @@ class Trainer:
                     return
 
     def load_checkpoint(self, filename):
-        checkpoint = torch.load(filename, map_location=self.device)
+        checkpoint = torch.load(filename)
         try:
-            self.model.load_state_dict(checkpoint["model_state_dict"],strict=False)
+            self.model.load_state_dict(checkpoint["model_state_dict"])
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.train_losses = checkpoint["train_losses"]
             self.best_acc = checkpoint.get("best_acc", 0)
