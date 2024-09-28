@@ -204,8 +204,6 @@ class Trainer:
                             self.logger.log("Early stopping triggered.")
                         return
 
-                self.cnn.update_freeze_state()
-
             epoch_duration = time.time() - epoch_start_time
             info = f"Epoch {epoch} completed in {epoch_duration:.2f}s."
             print(info)
