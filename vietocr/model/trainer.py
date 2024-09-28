@@ -226,7 +226,7 @@ class Trainer:
                     batch["tgt_padding_mask"],
                 )
 
-                with autocast(device_type="cuda", dtype=torch.bfloat16):
+                with autocast(device_type="cuda", dtype=torch.float16):
                     outputs = self.model(img, tgt_input, tgt_padding_mask)
                     outputs = outputs.flatten(0, 1)
                     tgt_output = tgt_output.flatten()
@@ -342,7 +342,7 @@ class Trainer:
         checkpoint = torch.load(filename)
         try:
             self.model.load_state_dict(checkpoint["model_state_dict"])
-            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            # self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.train_losses = checkpoint["train_losses"]
             self.best_acc = checkpoint.get("best_acc", 0)
         except:
@@ -431,7 +431,7 @@ class Trainer:
         )
 
         self.optimizer.zero_grad(set_to_none=True)
-        with autocast(device_type="cuda", dtype=torch.bfloat16):
+        with autocast(device_type="cuda", dtype=torch.float16):
             outputs = self.model(img, tgt_input, tgt_padding_mask)
             outputs = outputs.flatten(0, 1)
             tgt_output = tgt_output.flatten()
