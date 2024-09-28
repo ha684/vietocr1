@@ -178,8 +178,6 @@ class Trainer:
                 if self.valid_annotation and self.iter % self.valid_every == 0:
                     val_loss = self.validate()
                     acc_full_seq, acc_per_char = self.precision()
-                    torch.cuda.empty_cache()
-                    gc.collect()
                     info = (
                         f"Epoch: {epoch}/{self.num_epochs} | "
                         f"Iter: {self.iter} | "
@@ -443,7 +441,7 @@ class Trainer:
             loss = self.criterion(outputs, tgt_output)
 
         self.scaler.scale(loss).backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
         self.scaler.step(self.optimizer)
         self.scaler.update()
         self.scheduler.step()
