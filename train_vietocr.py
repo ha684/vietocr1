@@ -1,42 +1,38 @@
 from vietocr.model.trainer import Trainer
 from vietocr.tool.config import Cfg
 import os
-
-config = Cfg.load_config_from_file("./vietocr/config/vit_seq2seq.yml")
+config = Cfg.load_config_from_file('./vietocr/config/vit_seq2seq.yml')
 dataset_params = {
-    "name": "ha",
-    "data_root": r"D:\Workspace\python_code\ImageGenerations\images_out",
-    "train_annotation": "label_train.txt",
-    "valid_annotation": "label_test.txt",
+    'name': 'ha1',
+    'data_root': '/kaggle/input/folder5',
+    'train_annotation': 'label5/label_train.txt',
+    'valid_annotation': 'label5/label_test.txt',
+    'train_gen' : 'train_ha4',
+    'valid_gen' : 'valid_ha4',
+    'image_height': 32
 }
 
 params = {
-    "print_every": 1,
-    "valid_every": 1000,
-    "iters": 100000,
-    "epochs": 10,
-    "checkpoint": "./checkpoint/transformers_checkpoint.pth",
-    "export": "./weights/transformers.pth",
-    "metrics": 10000,
-    "patience": 5,
-    "batch_size": 1,
+    'print_every': 100,
+    'valid_every': 2000,
+    'epochs' : 10,
+    'checkpoint': './checkpoint/seq2seq_checkpoint.pth',
+    'export': './weights/seq2seq.pth',
+    'metrics': 1733846,
+    'patience': 5,
+    'batch_size': 32,
 }
-config["vocab"] = (
-    'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&'
-    "()*+,-./:;<=>?@[\]^_`{|}~’ " + "'"
-)
-config["trainer"].update(params)
-config["dataset"].update(dataset_params)
-config["device"] = "cuda:0"
-config["dataloader"]["num_workers"] = 0
+config['vocab'] = '!"$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJ�KLMNOPQRSTUVWXYZ[\]^_abcdefghijklmnopqrstuvwxyz{|}²³¼½¾ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯưẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹ '
+config['trainer'].update(params)
+config['dataset'].update(dataset_params)
+config['device'] = 'cuda'
+config['dataloader']['num_workers'] = 2
+trainer = Trainer(config, pretrained=False)
 
-
-trainer = Trainer(config)
-
-checkpoint_path = "./checkpoint/vgg_transformer_checkpoint.pth"
-if os.path.exists(checkpoint_path):
+checkpoint_path = './checkpoint/seq2seq_checkpoint.pth'
+if os.path.exists('/kaggle/input/vitseq2seq1/pytorch/default/1/seq2seq_checkpoint.pth'):
     print("Checkpoint found. Resuming training...")
-    trainer.load_checkpoint(checkpoint_path)
+    trainer.load_checkpoint('/kaggle/input/vitseq2seq1/pytorch/default/1/seq2seq_checkpoint.pth')
 else:
     print("No checkpoint found. Starting training from scratch...")
 
@@ -44,8 +40,7 @@ try:
     trainer.train()
     trainer.save_checkpoint(checkpoint_path)
 except KeyboardInterrupt:
-    pass
-    # trainer.save_checkpoint(checkpoint_path)
-    # print("Training interrupted. Checkpoint saved.")
+    trainer.save_checkpoint(checkpoint_path)
+    print("Training interrupted. Checkpoint saved.")
 
-config.save("config1.yaml")
+config.save('config1.yaml')

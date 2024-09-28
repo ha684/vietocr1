@@ -191,6 +191,7 @@ class Trainer:
 
                     if acc_full_seq > self.best_acc:
                         self.save_weights(self.export_weights)
+                        self.save_checkpoint(self.checkpoint)
                         self.best_acc = acc_full_seq
                         info = f"New best accuracy: {self.best_acc:.4f}. Weights saved."
                         print(info)
@@ -342,7 +343,7 @@ class Trainer:
         checkpoint = torch.load(filename)
         try:
             self.model.load_state_dict(checkpoint["model_state_dict"])
-            # self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.train_losses = checkpoint["train_losses"]
             self.best_acc = checkpoint.get("best_acc", 0)
         except:
@@ -438,7 +439,7 @@ class Trainer:
             loss = self.criterion(outputs, tgt_output)
 
         self.scaler.scale(loss).backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.5)
         self.scaler.step(self.optimizer)
         self.scaler.update()
         self.scheduler.step()
