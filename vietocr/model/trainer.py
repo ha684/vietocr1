@@ -417,7 +417,6 @@ class Trainer:
             collate_fn=collate_fn,
             shuffle=False,
             drop_last=False,
-            pin_memory=True,
             num_workers=self.config["dataloader"].get("num_workers", 4),
         )
 
