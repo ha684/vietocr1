@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class Encoder(nn.Module):
     def __init__(self, emb_dim, enc_hid_dim, dec_hid_dim, dropout):
@@ -15,16 +14,16 @@ class Encoder(nn.Module):
     def forward(self, src):
         """
         src: src_len x batch_size x img_channel
-        src_lengths: batch_size (lengths of each sequence in the batch)
         outputs: src_len x batch_size x hid_dim 
         hidden: batch_size x hid_dim
         """
-        
+
         embedded = self.dropout(src)
-        # Pack padded sequence
-        outputs,hidden = self.rnn(embedded)
-        # Concatenate the hidden states from both directions
-        hidden = torch.tanh(self.fc(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim=1)))
+        
+        outputs, hidden = self.rnn(embedded)
+                                 
+        hidden = torch.tanh(self.fc(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim = 1)))
+        
         return outputs, hidden
 
 class Attention(nn.Module):
@@ -51,6 +50,7 @@ class Attention(nn.Module):
         energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim = 2))) 
         
         attention = self.v(energy).squeeze(2)
+        
         return F.softmax(attention, dim = 1)
 
 class Decoder(nn.Module):
@@ -85,8 +85,9 @@ class Decoder(nn.Module):
         weighted = torch.bmm(a, encoder_outputs)
         
         weighted = weighted.permute(1, 0, 2)
-
-        rnn_input = torch.cat((embedded, weighted), dim = -1)
+        
+        rnn_input = torch.cat((embedded, weighted), dim = 2)
+        
         output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))
         
         assert (output == hidden).all()
@@ -107,7 +108,7 @@ class Seq2Seq(nn.Module):
         
         self.encoder = Encoder(img_channel, encoder_hidden, decoder_hidden, dropout)
         self.decoder = Decoder(vocab_size, decoder_embedded, encoder_hidden, decoder_hidden, dropout, attn)
-    
+        
     def forward_encoder(self, src):       
         """
         src: timestep x batch_size x channel
@@ -148,7 +149,7 @@ class Seq2Seq(nn.Module):
 
         outputs = torch.zeros(trg_len, batch_size, trg_vocab_size).to(device)
         encoder_outputs, hidden = self.encoder(src)
-        
+                
         for t in range(trg_len):
             input = trg[t] 
             output, hidden, _ = self.decoder(input, hidden, encoder_outputs)

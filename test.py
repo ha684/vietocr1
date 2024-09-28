@@ -1,41 +1,36 @@
-import lmdb
-import struct
+from transformers import TrainingArguments
+from unsloth import is_bfloat16_supported
+from unsloth import UnslothTrainer, UnslothTrainingArguments
 
+trainer = UnslothTrainer(
+    model = model,
+    tokenizer = tokenizer,
+    train_dataset = train_dataset,
+    dataset_text_field = "text",
+    max_seq_length = max_seq_length,
+    dataset_num_proc = 2,
 
-def merge_lmdb(source_paths, target_path):
-    with lmdb.open(target_path, map_size=10 * 1024 * 1024 * 1024) as target_env:
-        with target_env.begin(write=True) as target_txn:
-            total_entries = 0
-            for source_index, source_path in enumerate(source_paths):
-                entries_in_source = 0
-                with lmdb.open(source_path, readonly=True) as source_env:
-                    with source_env.begin() as source_txn:
-                        cursor = source_txn.cursor()
-                        for key, value in cursor:
-                            # Always append a unique identifier to the key
-                            new_key = (
-                                key
-                                + b"__"
-                                + struct.pack(">QQ", source_index, entries_in_source)
-                            )
-                            target_txn.put(new_key, value)
-                            entries_in_source += 1
-                total_entries += entries_in_source
-                print(
-                    f"Source {source_index + 1}: Added {entries_in_source} entries. Total entries: {total_entries}"
-                )
+    args = UnslothTrainingArguments(
+        per_device_train_batch_size = 2,
+        gradient_accumulation_steps = 8,
 
-    # Verify final count
-    with lmdb.open(target_path, readonly=True) as env:
-        with env.begin() as txn:
-            final_count = txn.stat()["entries"]
-    print(f"Final entry count in merged LMDB: {final_count}")
+        # Use warmup_ratio and num_train_epochs for longer runs!
+        max_steps = 120,
+        warmup_steps = 10,
+        # warmup_ratio = 0.1,
+        # num_train_epochs = 1,
 
+        # Select a 2 to 10x smaller learning rate for the embedding matrices!
+        learning_rate = 5e-5,
+        embedding_learning_rate = 1e-5,
 
-# Usage
-source_paths = [
-    r"D:\Workspace\python_code\vietocr1\train_ha",
-    r"D:\Workspace\python_code\vietocr1\train_ha1",
-]
-target_path = "merged_lmdb"
-merge_lmdb(source_paths, target_path)
+        fp16 = not is_bfloat16_supported(),
+        bf16 = is_bfloat16_supported(),
+        logging_steps = 1,
+        optim = "adamw_8bit",
+        weight_decay = 0.01,
+        lr_scheduler_type = "linear",
+        seed = 3407,
+        output_dir = "outputs",
+    ),
+)
