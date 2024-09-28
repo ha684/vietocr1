@@ -28,7 +28,7 @@ class CNN(nn.Module):
         self.current_epoch = 0
         self.unfreeze_schedule = self._calculate_unfreeze_schedule()
 
-        self.freeze()
+        self.unfreeze()
 
     def get_backbone_parameters(self):
         if hasattr(self.model, "features"):

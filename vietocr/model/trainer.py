@@ -20,6 +20,7 @@ from vietocr.loader.aug import ImgAugTransformV2
 from vietocr.loader.dataloader import OCRDataset, ClusterRandomSampler, Collator
 from vietocr.model.backbone.cnn import CNN
 
+import gc
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
@@ -57,7 +58,6 @@ class EarlyStopping:
         torch.save(model.state_dict(), path)
         self.val_loss_min = val_loss
 
-import gc
 class Trainer:
     def __init__(self, config, pretrained=False, augmentor=ImgAugTransformV2()):
         self.config = config
@@ -65,7 +65,7 @@ class Trainer:
 
         # Build model and move it to the appropriate device
         self.model, self.vocab = build_model(config)
-
+        self.model.to(self.device)  # Ensure the model is on the correct device
 
         self.num_iters = config["trainer"]["iters"]
         self.beamsearch = config["predictor"]["beamsearch"]
@@ -157,6 +157,10 @@ class Trainer:
                 total_loss += loss
                 self.train_losses.append((self.iter, loss))
 
+                # Limit the size of train_losses to prevent memory buildup
+                if len(self.train_losses) > 1000:
+                    self.train_losses = self.train_losses[-1000:]
+
                 if self.iter % self.print_every == 0:
                     avg_loss = total_loss / self.print_every
                     current_lr = self.optimizer.param_groups[0]["lr"]
@@ -177,7 +181,7 @@ class Trainer:
 
                 if self.valid_annotation and self.iter % self.valid_every == 0:
                     val_loss = self.validate()
-                    acc_full_seq, acc_per_char = self.precision()
+                    acc_full_seq, acc_per_char = self.precision(sample=1000)  # Limit sample size
                     info = (
                         f"Epoch: {epoch}/{self.num_epochs} | "
                         f"Iter: {self.iter} | "
@@ -203,6 +207,10 @@ class Trainer:
                         if hasattr(self, "logger"):
                             self.logger.log("Early stopping triggered.")
                         return
+
+                    # Force garbage collection after validation
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
                 self.cnn.update_freeze_state()
 
@@ -236,7 +244,16 @@ class Trainer:
 
                 total_loss.append(loss.item())
 
+                # Free up memory
+                del img, tgt_input, tgt_output, tgt_padding_mask, outputs, loss
+                torch.cuda.empty_cache()
+
         total_loss = np.mean(total_loss)
+
+        # Force garbage collection after validation
+        gc.collect()
+        torch.cuda.empty_cache()
+
         return total_loss
 
     def predict(self, sample=None):
@@ -246,40 +263,56 @@ class Trainer:
         all_probs = []
 
         self.model.eval()
+        max_samples = sample if sample is not None else float('inf')
+        num_samples = 0
+
         with torch.no_grad():
             for batch in self.valid_gen:
                 batch = self.batch_to_device(batch)
+                img = batch["img"]
 
                 if self.beamsearch:
-                    translated_sentence = batch_translate_beam_search(
-                        batch["img"], self.model
-                    )
+                    translated_sentence = batch_translate_beam_search(img, self.model)
                     prob = None
                 else:
-                    translated_sentence, prob = translate(batch["img"], self.model)
+                    translated_sentence, prob = translate(img, self.model)
+
+                # Move tensors to CPU and detach
+                translated_sentence = translated_sentence.cpu()
+                tgt_output = batch["tgt_output"].cpu()
 
                 pred_sent = self.vocab.batch_decode(translated_sentence.tolist())
-                actual_sent = self.vocab.batch_decode(batch["tgt_output"].tolist())
+                actual_sent = self.vocab.batch_decode(tgt_output.tolist())
 
                 img_files.extend(batch["filenames"])
                 pred_sents.extend(pred_sent)
                 actual_sents.extend(actual_sent)
 
                 if prob is not None:
+                    prob = prob.cpu()
                     all_probs.extend(prob.tolist())
                 else:
                     all_probs.extend([None] * len(pred_sent))
 
-                if sample is not None and len(pred_sents) >= sample:
+                num_samples += len(pred_sent)
+                if num_samples >= max_samples:
                     pred_sents = pred_sents[:sample]
                     actual_sents = actual_sents[:sample]
                     img_files = img_files[:sample]
                     all_probs = all_probs[:sample]
                     break
 
+                # Free up memory
+                del img, batch, translated_sentence, tgt_output
+                torch.cuda.empty_cache()
+
+        # Force garbage collection after prediction
+        gc.collect()
+        torch.cuda.empty_cache()
+
         return pred_sents, actual_sents, img_files, all_probs
 
-    def precision(self, sample=None):
+    def precision(self, sample=1000):
         pred_sents, actual_sents, _, _ = self.predict(sample=sample)
         acc_full_seq = compute_accuracy(actual_sents, pred_sents, mode="full_sequence")
         acc_per_char = compute_accuracy(actual_sents, pred_sents, mode="per_char")
@@ -417,7 +450,7 @@ class Trainer:
             collate_fn=collate_fn,
             shuffle=False,
             drop_last=False,
-            num_workers=self.config["dataloader"].get("num_workers", 4),
+            **self.config['dataloader'],
         )
 
         return gen
@@ -444,5 +477,9 @@ class Trainer:
         self.scaler.step(self.optimizer)
         self.scaler.update()
         self.scheduler.step()
+
+        # Free up memory
+        del img, tgt_input, tgt_output, tgt_padding_mask, outputs
+        torch.cuda.empty_cache()
 
         return loss.item()
