@@ -28,7 +28,7 @@ class CNN(nn.Module):
         self.current_epoch = 0
         self.unfreeze_schedule = self._calculate_unfreeze_schedule()
 
-        self.unfreeze()
+        self.freeze()
 
     def get_backbone_parameters(self):
         if hasattr(self.model, "features"):
@@ -51,7 +51,7 @@ class CNN(nn.Module):
 
     def freeze(self):
         for i, param in enumerate(self.get_backbone_parameters()):
-            param.requires_grad = i >= self.frozen_layers
+            param.requires_grad = i > 100
         print(
             f"Partially frozen: {self.frozen_layers} layers frozen, {self.total_layers - self.frozen_layers} layers trainable."
         )
