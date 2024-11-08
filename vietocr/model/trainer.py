@@ -107,7 +107,7 @@ class Trainer:
             transforms = augmentor
 
         self.train_gen = self.data_gen(
-            os.path.join(self.data_root, self.train_gen_path),
+            self.train_gen_path,
             annotation_path=self.train_annotation,
             masked_language_model=self.masked_language_model,
             transform=transforms,
@@ -125,7 +125,7 @@ class Trainer:
 
         if self.valid_annotation:
             self.valid_gen = self.data_gen(
-                os.path.join(self.data_root, self.valid_gen_path),
+                self.valid_gen_path,
                 annotation_path=self.valid_annotation,
                 masked_language_model=False,
                 transform=None,
