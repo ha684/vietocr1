@@ -3,25 +3,27 @@ from torchvision import models
 import math
 import torch
 from torch import nn
+
 class LanguageTransformer(nn.Module):
     def __init__(self, vocab_size, 
                  d_model, nhead, 
                  num_encoder_layers, num_decoder_layers, 
                  dim_feedforward, max_seq_length, 
-                 pos_dropout, trans_dropout,custom_decode = None,k_list = None,v_list=None):
+                 pos_dropout, trans_dropout):
         super().__init__()
-        self.custom_decode = custom_decode
+        
         self.d_model = d_model
         self.embed_tgt = nn.Embedding(vocab_size, d_model)
         self.pos_enc = PositionalEncoding(d_model, pos_dropout, max_seq_length)
 #        self.learned_pos_enc = LearnedPositionalEncoding(d_model, pos_dropout, max_seq_length)
+
         self.transformer = nn.Transformer(d_model, nhead, 
                                           num_encoder_layers, num_decoder_layers, 
-                                          dim_feedforward, trans_dropout,custom_decoder=custom_decode,k_list=k_list,v_list=v_list)
+                                          dim_feedforward, trans_dropout)
         
         self.fc = nn.Linear(d_model, vocab_size)
         
-    def forward(self, src, tgt, k_list,v_list,src_key_padding_mask=None, tgt_key_padding_mask=None, memory_key_padding_mask=None):
+    def forward(self, src, tgt, src_key_padding_mask=None, tgt_key_padding_mask=None, memory_key_padding_mask=None):
         """
         Shape:
             - src: (W, N, C)
@@ -38,17 +40,12 @@ class LanguageTransformer(nn.Module):
 #        src = self.learned_pos_enc(src*math.sqrt(self.d_model))
 
         tgt = self.pos_enc(self.embed_tgt(tgt) * math.sqrt(self.d_model))
-        if self.custom_decode is not None:
-            output,k_list,v_list = self.transformer(src,tgt,k_list,v_list,tgt_mask=tgt_mask, src_key_padding_mask=src_key_padding_mask,
-                                    tgt_key_padding_mask=tgt_key_padding_mask.float(), memory_key_padding_mask=memory_key_padding_mask)
-            output = output.transpose(0,1)
-            return self.fc(output),k_list,v_list
-        else:
-            output = self.transformer(src, tgt, tgt_mask=tgt_mask, src_key_padding_mask=src_key_padding_mask,
-                                    tgt_key_padding_mask=tgt_key_padding_mask.float(), memory_key_padding_mask=memory_key_padding_mask)
+        
+        output = self.transformer(src, tgt, tgt_mask=tgt_mask, src_key_padding_mask=src_key_padding_mask,
+                                  tgt_key_padding_mask=tgt_key_padding_mask.float(), memory_key_padding_mask=memory_key_padding_mask)
 #        output = rearrange(output, 't n e -> n t e')
-            output = output.transpose(0, 1)
-            return self.fc(output)
+        output = output.transpose(0, 1)
+        return self.fc(output)
 
     def gen_nopeek_mask(self, length):
         mask = (torch.triu(torch.ones(length, length)) == 1).transpose(0, 1)
@@ -93,7 +90,8 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :].to(x.device)
+        x = x + self.pe[:x.size(0), :]
+
         return self.dropout(x)
  
 class LearnedPositionalEncoding(nn.Module):
@@ -124,5 +122,3 @@ class LayerNorm(nn.Module):
         s = (x - u).pow(2).mean(-1, keepdim=True)
         x = (x - u) / torch.sqrt(s + self.variance_epsilon)
         return self.gamma * x + self.beta  
-
-

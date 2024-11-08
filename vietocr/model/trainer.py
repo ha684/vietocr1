@@ -211,7 +211,6 @@ class Trainer:
             if hasattr(self, "logger"):
                 self.logger.log(info)
 
-            # Save checkpoint at the end of each epoch
             self.save_checkpoint(self.checkpoint)
 
     def validate(self):
