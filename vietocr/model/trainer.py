@@ -283,61 +283,6 @@ class Trainer:
         acc_per_char = compute_accuracy(actual_sents, pred_sents, mode="per_char")
         return acc_full_seq, acc_per_char
 
-    def visualize_prediction(
-        self, sample=16, errorcase=False, fontname="serif", fontsize=16
-    ):
-        pred_sents, actual_sents, img_files, probs = self.predict(sample)
-
-        if errorcase:
-            wrongs = [
-                i for i in range(len(img_files)) if pred_sents[i] != actual_sents[i]
-            ]
-            pred_sents = [pred_sents[i] for i in wrongs]
-            actual_sents = [actual_sents[i] for i in wrongs]
-            img_files = [img_files[i] for i in wrongs]
-            probs = [probs[i] for i in wrongs]
-
-        img_files = img_files[:sample]
-
-        fontdict = {"family": fontname, "size": fontsize}
-
-        for vis_idx in range(len(img_files)):
-            img_path = img_files[vis_idx]
-            pred_sent = pred_sents[vis_idx]
-            actual_sent = actual_sents[vis_idx]
-            prob = probs[vis_idx] if probs[vis_idx] is not None else "N/A"
-
-            img = Image.open(img_path)
-            plt.figure()
-            plt.imshow(img)
-            plt.title(
-                f"prob: {prob} - pred: {pred_sent} - actual: {actual_sent}",
-                loc="left",
-                fontdict=fontdict,
-            )
-            plt.axis("off")
-
-        plt.show()
-
-    def visualize_dataset(self, sample=16, fontname="serif"):
-        n = 0
-        for batch in self.train_gen:
-            imgs = batch["img"]
-            tgt_inputs = batch["tgt_input"]
-            for i in range(len(imgs)):
-                img = imgs[i].cpu().numpy().transpose(1, 2, 0)
-                sent = self.vocab.decode(tgt_inputs.T[i].tolist())
-
-                plt.figure()
-                plt.title(f"sent: {sent}", loc="center", fontname=fontname)
-                plt.imshow(img)
-                plt.axis("off")
-
-                n += 1
-                if n >= sample:
-                    plt.show()
-                    return
-
     def load_checkpoint(self, filename):
         checkpoint = torch.load(filename)
         try:
