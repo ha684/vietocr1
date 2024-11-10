@@ -23,7 +23,7 @@ class CNN(nn.Module):
 
         self.backbone = backbone
         self.total_layers = len(list(self.get_backbone_parameters()))
-        self.frozen_layers = self.total_layers - 3
+        self.frozen_layers = self.total_layers - 1
         self.total_epochs = 0
         self.current_epoch = 0
         self.unfreeze_schedule = self._calculate_unfreeze_schedule()
